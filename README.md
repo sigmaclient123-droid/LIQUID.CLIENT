@@ -6,5 +6,4 @@ A menu by SIGMA BOY and CDev!
 2. Add `liquid.client.dll` to your plugins folder
 3. Enjoy!
 
-### Discord
-https://discord.gg/EmJ94wWBzc
+### [Join the Discord!](https://discord.gg/EmJ94wWBzc)
