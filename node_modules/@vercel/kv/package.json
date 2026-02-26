@@ -1,0 +1,67 @@
+{
+  "name": "@vercel/kv",
+  "version": "1.0.1",
+  "description": "Durable Redis",
+  "homepage": "https://vercel.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vercel/storage.git",
+    "directory": "packages/kv"
+  },
+  "license": "Apache-2.0",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "node": "./dist/index.js",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "node": "./dist/index.cjs",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node"
+  },
+  "dependencies": {
+    "@upstash/redis": "1.25.1"
+  },
+  "devDependencies": {
+    "@changesets/cli": "2.27.1",
+    "@edge-runtime/jest-environment": "2.3.7",
+    "@edge-runtime/types": "2.2.7",
+    "@types/jest": "29.5.11",
+    "@types/node": "20.10.4",
+    "eslint": "8.55.0",
+    "husky": "8.0.3",
+    "jest": "29.7.0",
+    "lint-staged": "15.2.0",
+    "prettier": "3.1.0",
+    "ts-jest": "29.1.1",
+    "tsup": "8.0.1",
+    "typescript": "5.3.3",
+    "eslint-config-custom": "0.0.0",
+    "tsconfig": "0.0.0"
+  },
+  "engines": {
+    "node": ">=14.6"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch --clean=false",
+    "lint": "eslint --max-warnings=0 .",
+    "prettier-check": "prettier --check .",
+    "publint": "npx publint",
+    "test": "jest --env @edge-runtime/jest-environment .test.ts && jest --env node .test.ts",
+    "type-check": "tsc --noEmit"
+  }
+}

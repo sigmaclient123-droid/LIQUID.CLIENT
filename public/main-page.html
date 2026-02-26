@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Liquid</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:black; cursor:default; }
+    video { position:fixed; top:0; left:0; width:100vw; height:100vh; object-fit:cover; }
+  </style>
+</head>
+<body>
+
+<video id="vid" autoplay loop muted playsinline>
+  <source src="https://files.hamburbur.org/hamburger.mp4" type="video/mp4">
+</video>
+
+<script>
+const v = document.getElementById("vid");
+let armed = false;
+let done = false;
+
+setTimeout(() => { armed = true; }, 500);
+
+function wake() {
+  if (!armed || done) return;
+  done = true;
+  v.muted = false;
+  v.play().catch(() => {});
+  events.forEach(e => document.removeEventListener(e, wake));
+}
+
+const events = ["click","keydown","mousemove","touchstart","wheel","pointerdown"];
+events.forEach(e => document.addEventListener(e, wake));
+</script>
+
+</body>
+</html>

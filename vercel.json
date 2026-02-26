@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/", "destination": "/public/main-page.html" },
+    { "source": "/liquid", "destination": "/public/main-page.html" },
+    { "source": "/data", "destination": "/api/index.js" },
+    { "source": "/json", "destination": "/api/index.js" },
+    { "source": "/serverdata", "destination": "/api/index.js" },
+    { "source": "/dashboard", "destination": "/api/index.js" },
+    { "source": "/dash", "destination": "/api/index.js" },
+    { "source": "/manage", "destination": "/api/index.js" },
+    { "source": "/websocket", "destination": "/api/index.js" },
+    { "source": "/(.*)", "destination": "/api/index.js" }
+  ]
+}
