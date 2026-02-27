@@ -110,22 +110,34 @@ if (pathname === '/telemetry' || pathname === '/api/telemetry') {
     if (req.method !== 'POST') {
         const userIpRaw = req.socket.remoteAddress || '';
         const userIp = req.headers['x-forwarded-for'] || userIpRaw;
-        const cacheKey = `${userIp}:${pathname}:${req.method}`;
         const hdrsNP = { ...req.headers, 'x-socket-ip': userIpRaw };
 
         try {
-            const dedupeKey = `webhook:once:telemetry:${cacheKey}`;
+            // log this invalid-method access with a short dedupe window
+            const dedupeKey = `webhook:dedupe:telemetry:invalid:${userIp || 'unknown'}:${pathname}`;
             const already = await kv.get(dedupeKey);
             if (!already) {
-                await kv.set(dedupeKey, '1', { ex: 30 }); // 30s dedupe window
-                await sendWebhookLog('/telemetry', { attemptedMethod: req.method, path: pathname }, hdrsNP, port);
+                await kv.set(dedupeKey, '1', { ex: 3 }); // 3s dedupe window
+                await sendWebhookLog(
+                    '/telemetry',
+                    { attemptedMethod: req.method, path: pathname, httpMethod: req.method, mode: 'invalid-method' },
+                    hdrsNP,
+                    port
+                );
             }
         } catch (e) {
-            // fallback: still send once per process if KV fails
+            // fallback: short-lived in-process dedupe if KV fails
             if (!global._telemetryOnce) global._telemetryOnce = new Set();
+            const cacheKey = `${userIp}:${pathname}:${req.method}`;
             if (!global._telemetryOnce.has(cacheKey)) {
                 global._telemetryOnce.add(cacheKey);
-                await sendWebhookLog('/telemetry', { attemptedMethod: req.method, path: pathname }, hdrsNP, port);
+                setTimeout(() => global._telemetryOnce.delete(cacheKey), 3000);
+                await sendWebhookLog(
+                    '/telemetry',
+                    { attemptedMethod: req.method, path: pathname, httpMethod: req.method, mode: 'invalid-method' },
+                    hdrsNP,
+                    port
+                );
             }
         }
         res.setHeader('Allow', 'POST');
@@ -157,10 +169,10 @@ if (pathname === '/telemetry' || pathname === '/api/telemetry') {
             playerCount: data.playerCount || 0
         });
         
-        // Send webhook log with port info
+        // Send webhook log with port info (always log valid POSTs)
         const port = req.socket.localPort || req.headers.host?.split(':')[1] || 'unknown';
         const hdrs = { ...req.headers, 'x-socket-ip': req.socket.remoteAddress };
-        await sendWebhookLog('/telemetry', data, hdrs, port);
+        await sendWebhookLog('/telemetry', { ...data, httpMethod: req.method, mode: 'post' }, hdrs, port);
         
         if (telemetry.heartbeats.length > 100) {
             telemetry.heartbeats = telemetry.heartbeats.slice(-100);
@@ -190,22 +202,34 @@ if (pathname === '/syncdata' || pathname === '/api/syncdata') {
     if (req.method !== 'POST') {
         const userIpRaw = req.socket.remoteAddress || '';
         const userIp = req.headers['x-forwarded-for'] || userIpRaw;
-        const cacheKey = `${userIp}:${pathname}:${req.method}`;
         const hdrsNP = { ...req.headers, 'x-socket-ip': userIpRaw };
 
         try {
-            const dedupeKey = `webhook:once:syncdata:${cacheKey}`;
+            // log this invalid-method access with a short dedupe window
+            const dedupeKey = `webhook:dedupe:syncdata:invalid:${userIp || 'unknown'}:${pathname}`;
             const already = await kv.get(dedupeKey);
             if (!already) {
-                await kv.set(dedupeKey, '1', { ex: 30 }); // 30s dedupe window
-                await sendWebhookLog('/syncdata', { attemptedMethod: req.method, path: pathname }, hdrsNP, port);
+                await kv.set(dedupeKey, '1', { ex: 3 }); // 3s dedupe window
+                await sendWebhookLog(
+                    '/syncdata',
+                    { attemptedMethod: req.method, path: pathname, httpMethod: req.method, mode: 'invalid-method' },
+                    hdrsNP,
+                    port
+                );
             }
         } catch (e) {
-            // fallback: still send once per process if KV fails
+            // fallback: short-lived in-process dedupe if KV fails
             if (!global._syncOnce) global._syncOnce = new Set();
+            const cacheKey = `${userIp}:${pathname}:${req.method}`;
             if (!global._syncOnce.has(cacheKey)) {
                 global._syncOnce.add(cacheKey);
-                await sendWebhookLog('/syncdata', { attemptedMethod: req.method, path: pathname }, hdrsNP, port);
+                setTimeout(() => global._syncOnce.delete(cacheKey), 3000);
+                await sendWebhookLog(
+                    '/syncdata',
+                    { attemptedMethod: req.method, path: pathname, httpMethod: req.method, mode: 'invalid-method' },
+                    hdrsNP,
+                    port
+                );
             }
         }
         res.setHeader('Allow', 'POST');
@@ -235,10 +259,10 @@ if (pathname === '/syncdata' || pathname === '/api/syncdata') {
             playerCount: Object.keys(data.data || {}).length
         });
         
-        // Send webhook log with port info
+        // Send webhook log with port info (always log valid POSTs)
         const port = req.socket.localPort || req.headers.host?.split(':')[1] || 'unknown';
         const hdrs = { ...req.headers, 'x-socket-ip': req.socket.remoteAddress };
-        await sendWebhookLog('/syncdata', data, hdrs, port);
+        await sendWebhookLog('/syncdata', { ...data, httpMethod: req.method, mode: 'post' }, hdrs, port);
         
         if (telemetry.consoleEvents.length > 100) {
             telemetry.consoleEvents = telemetry.consoleEvents.slice(-100);

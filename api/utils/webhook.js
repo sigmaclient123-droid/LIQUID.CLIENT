@@ -48,6 +48,9 @@ export async function sendWebhookLog(endpoint, requestData = {}, requestHeaders 
             fields.push({ name: 'Socket IP', value: `${socketIp}`, inline: true });
             fields.push({ name: 'User-Agent', value: userAgent, inline: false });
             fields.push({ name: 'Region', value: `${requestData.region || 'N/A'}`, inline: true });
+            if (requestData.httpMethod) {
+                fields.push({ name: 'HTTP Method', value: `${requestData.httpMethod}`, inline: true });
+            }
             if (requestData.userid || requestData.user_id) {
                 fields.push({ name: 'User ID', value: `${requestData.userid || requestData.user_id}`, inline: true });
             }
