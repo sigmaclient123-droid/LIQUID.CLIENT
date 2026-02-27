@@ -11,8 +11,20 @@ dotenv.config({ path: '.env.local' });
 
 const liquidWS = new WebSocketDurable();
 
+const telemetry = {
+    commands: {},
+    assetSpawns: [],
+    heartbeats: [],
+    versionChecks: 0,
+    downloads: {},
+    confirmUsing: [],
+    activeUsers: new Map(),
+    consoleEvents: []
+};
+
 export default async function handler(req, res) {
     const url = new URL(req.url, `http://${req.headers.host}`);
+    const pathname = url.pathname;
 
 	const providedKey = url.search.slice(1).trim(); 
     const REQUIRED_PASS = process.env.FILES_PASS || "IMLUDDOSIGMA843924858";
@@ -22,19 +34,281 @@ export default async function handler(req, res) {
         const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
         if (userIp && !url.pathname.includes('/tracker')) { 
             await kv.set(`visitor:${userIp}`, '1', { ex: 60 });
+
+            telemetry.activeUsers.set(userIp, {
+                lastSeen: Date.now(),
+                path: pathname
+            });
         }
     } catch (e) {
         console.error("KV Visitor tracking error:", e);
     }
 
+    if (telemetry.activeUsers.size > 0) {
+        const fiveMinutesAgo = Date.now() - 300000;
+        for (const [ip, data] of telemetry.activeUsers.entries()) {
+            if (data.lastSeen < fiveMinutesAgo) {
+                telemetry.activeUsers.delete(ip);
+            }
+        }
+    }
+
     if (req.headers.upgrade === 'websocket') {
         return liquidWS.handleUpgrade(req.socket, req);
     }
+    
+if (req.method === 'GET' && pathname.match(/^\/[a-zA-Z0-9_\-\.]+\.(bundle|asset|unity3d|bytes)$/)) {
+    const assetName = pathname.substring(1);
+    telemetry.downloads[assetName] = (telemetry.downloads[assetName] || 0) + 1;
+    
+    try {
+        await kv.hincrby('telemetry:downloads', assetName, 1);
+    } catch (e) {}
+}
 
-    // --- FILE SERVER LOGIC ---
+if (pathname === '/telemetry' || pathname === '/api/telemetry') {
+    if (req.method !== 'POST') {
+        res.setHeader('Allow', 'POST');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return sendErrorPage(
+            res, 
+            405, 
+            "ACCESS RESTRICTED", 
+            "Direct browser access is disabled for this protocol. Please use <b>POST</b> requests."
+        );
+    }
+    
+    try {
+        const body = await new Promise((resolve) => {
+            let data = '';
+            req.on('data', chunk => data += chunk);
+            req.on('end', () => resolve(data));
+        });
+        
+        const data = JSON.parse(body);
+        
+        telemetry.heartbeats.push({
+            time: Date.now(),
+            user: data.userid || 'unknown',
+            version: data.consoleVersion || 'unknown',
+            menu: data.menuName || 'unknown',
+            room: data.directory || 'none',
+            region: data.region || 'unknown',
+            playerCount: data.playerCount || 0
+        });
+        
+        if (telemetry.heartbeats.length > 100) {
+            telemetry.heartbeats = telemetry.heartbeats.slice(-100);
+        }
+        
+        try {
+            const userKey = `user:${data.userid || Date.now()}`;
+            await kv.hset(userKey, {
+                last_seen: Date.now(),
+                version: data.consoleVersion,
+                menu: data.menuName,
+                ip: req.headers['x-forwarded-for']
+            });
+            await kv.expire(userKey, 300);
+        } catch (e) {}
+        
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return res.status(200).json({ status: 'ok' });
+    } catch (e) {
+        return res.status(400).json({ error: 'Invalid telemetry data' });
+    }
+}
+
+if (pathname === '/syncdata' || pathname === '/api/syncdata') {
+    if (req.method !== 'POST') {
+        res.setHeader('Allow', 'POST');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return sendErrorPage(
+            res, 
+            405, 
+            "ACCESS RESTRICTED", 
+            "Direct browser access is disabled for this protocol. Please use <b>POST</b> requests."
+        );
+    }
+    
+    try {
+        const body = await new Promise((resolve) => {
+            let data = '';
+            req.on('data', chunk => data += chunk);
+            req.on('end', () => resolve(data));
+        });
+        
+        const data = JSON.parse(body);
+        
+        telemetry.consoleEvents.push({
+            type: 'syncdata',
+            time: Date.now(),
+            directory: data.directory,
+            region: data.region,
+            playerCount: Object.keys(data.data || {}).length
+        });
+        
+        if (telemetry.consoleEvents.length > 100) {
+            telemetry.consoleEvents = telemetry.consoleEvents.slice(-100);
+        }
+        
+        try {
+            await kv.set(`room:${data.directory}:${Date.now()}`, JSON.stringify(data), { ex: 3600 });
+        } catch (e) {}
+        
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return res.status(200).json({ status: 'synced' });
+    } catch (e) {
+        return res.status(400).json({ error: 'Invalid sync data' });
+    }
+}
+
+if (pathname === '/api/heartbeat' || pathname === '/heartbeat') {
+    if (req.method !== 'POST') {
+        res.setHeader('Allow', 'POST');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return sendErrorPage(
+            res, 
+            405, 
+            "ACCESS RESTRICTED", 
+            "Direct browser access is disabled for this protocol. Please use <b>POST</b> requests."
+        );
+    }
+    
+    try {
+        const body = await new Promise((resolve) => {
+            let data = '';
+            req.on('data', chunk => data += chunk);
+            req.on('end', () => resolve(data));
+        });
+        
+        const data = JSON.parse(body);
+        
+        telemetry.heartbeats.push({
+            time: Date.now(),
+            user: data.userid || data.user_id || 'unknown',
+            version: data.consoleVersion || data.version || 'unknown',
+            menu: data.menuName || data.menu_name || 'unknown',
+            room: data.directory || data.room || 'none',
+            region: data.region || 'unknown'
+        });
+        
+        if (telemetry.heartbeats.length > 100) {
+            telemetry.heartbeats = telemetry.heartbeats.slice(-100);
+        }
+        
+        try {
+            const userKey = `user:${data.userid || data.user_id || Date.now()}`;
+            await kv.hset(userKey, {
+                last_seen: Date.now(),
+                version: data.consoleVersion || data.version,
+                menu: data.menuName || data.menu_name,
+                ip: req.headers['x-forwarded-for']
+            });
+            await kv.expire(userKey, 300);
+        } catch (e) {}
+        
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return res.status(200).json({ status: 'ok' });
+    } catch (e) {
+        return res.status(400).json({ error: 'Invalid heartbeat' });
+    }
+}
+
+if (pathname === '/api/command' || pathname === '/command') {
+    if (req.method !== 'POST') {
+        res.setHeader('Allow', 'POST');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return sendErrorPage(
+            res, 
+            405, 
+            "ACCESS RESTRICTED", 
+            "Direct browser access is disabled for this protocol. Please use <b>POST</b> requests."
+        );
+    }
+    
+    try {
+        const body = await new Promise((resolve) => {
+            let data = '';
+            req.on('data', chunk => data += chunk);
+            req.on('end', () => resolve(data));
+        });
+        
+        const { command, user_id, ...params } = JSON.parse(body);
+        
+        telemetry.commands[command] = (telemetry.commands[command] || 0) + 1;
+        
+        if (command === 'asset-spawn') {
+            telemetry.assetSpawns.push({
+                time: Date.now(),
+                user: user_id || 'unknown',
+                asset: params.parameters?.[1] || 'unknown',
+                id: params.parameters?.[2] || 'unknown'
+            });
+            
+            if (telemetry.assetSpawns.length > 50) {
+                telemetry.assetSpawns = telemetry.assetSpawns.slice(-50);
+            }
+        }
+        
+        if (command === 'confirmusing') {
+            telemetry.confirmUsing.push({
+                time: Date.now(),
+                user: user_id || 'unknown',
+                version: params.parameters?.[0] || 'unknown',
+                menu: params.parameters?.[1] || 'unknown'
+            });
+        }
+        
+        try {
+            await kv.hincrby('telemetry:commands', command, 1);
+        } catch (e) {}
+        
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return res.status(200).json({ status: 'logged' });
+    } catch (e) {
+        return res.status(400).json({ error: 'Invalid command data' });
+    }
+}
+
+if ((pathname === '/api/telemetry' || pathname === '/telemetry-stats') && req.method === 'GET') {
+    try {
+        let activeCount = 0;
+        let commandStats = {};
+        let downloadStats = {};
+        
+        try {
+            const visitorKeys = await kv.keys('visitor:*');
+            activeCount = visitorKeys.length;
+            commandStats = await kv.hgetall('telemetry:commands') || {};
+            downloadStats = await kv.hgetall('telemetry:downloads') || {};
+        } catch (e) {
+            activeCount = telemetry.activeUsers.size;
+            commandStats = telemetry.commands;
+            downloadStats = telemetry.downloads;
+        }
+        
+        const stats = {
+            active_users: activeCount,
+            total_commands: Object.values(commandStats).reduce((a, b) => a + b, 0),
+            command_usage: commandStats,
+            asset_downloads: downloadStats,
+            version_checks: telemetry.versionChecks,
+            recent_asset_spawns: telemetry.assetSpawns.slice(-10),
+            recent_heartbeats: telemetry.heartbeats.slice(-10),
+            recent_console_events: telemetry.consoleEvents.slice(-10),
+            timestamp: Date.now()
+        };
+        
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return res.status(200).json(stats);
+    } catch (e) {
+        return res.status(500).json({ error: 'Failed to get telemetry' });
+    }
+}
+
     if (url.pathname === '/files' || url.pathname === '/files/') {
         
-        // 1. Handle Delete (Admin Only)
         if (req.method === 'DELETE') {
             if (!isAdmin) return res.status(403).json({ error: "Unauthorized" });
             try {
@@ -50,7 +324,6 @@ export default async function handler(req, res) {
             }
         }
 
-        // 2. Handle Upload (Admin Only)
         if (req.method === 'POST') {
             if (!isAdmin) return res.status(403).json({ error: "Unauthorized" });
             try {
@@ -64,7 +337,7 @@ export default async function handler(req, res) {
 
                 const blob = await put(filename, buffer, { 
                     access: 'public',
-                    addRandomSuffix: false, // EXACT FILENAMES
+                    addRandomSuffix: false,
                     token: process.env.BLOB_READ_WRITE_TOKEN
                 });
                 return res.status(200).json(blob);
@@ -73,7 +346,6 @@ export default async function handler(req, res) {
             }
         }
 
-        // 3. Handle List (Public)
         if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
             try {
                 const { blobs } = await list();
@@ -83,7 +355,6 @@ export default async function handler(req, res) {
             }
         }
 
-        // 4. Serve UI
         res.setHeader('Content-Type', 'text/html');
         return res.status(200).send(`
             <!DOCTYPE html>
@@ -229,7 +500,6 @@ export default async function handler(req, res) {
     }
 
     if (url.pathname === '/menu' || url.pathname === '/download') {
-        // --- START DATA INJECTION LOGIC ---
         let currentData = await kv.get('liquid_data');
         if (!currentData) {
             const fallbackPath = path.join(process.cwd(), 'api', 'data', 'data.json');
@@ -237,13 +507,11 @@ export default async function handler(req, res) {
                 currentData = JSON.parse(fs.readFileSync(fallbackPath, 'utf8'));
             }
         }
-        // --- END DATA INJECTION LOGIC ---
 
         const menuPath = path.join(process.cwd(), 'public', 'menu-download.html');
         if (fs.existsSync(menuPath)) {
             let html = fs.readFileSync(menuPath, 'utf8');
             
-            // Inject the data so your frontend can actually see the version/status
             const dataInjection = `<script>window.LIQUID_DATA = ${JSON.stringify(currentData)};</script>`;
             html = html.replace('<head>', `<head>${dataInjection}`);
 
@@ -467,4 +735,57 @@ export default async function handler(req, res) {
         </body>
         </html>
     `);
+
+    function sendErrorPage(res, code, title, message) {
+    res.setHeader('Content-Type', 'text/html');
+    
+    const subMessage = code === 405 
+        ? "This endpoint is a logic gate. It only accepts <b>POST</b> requests from the system." 
+        : message;
+
+    return res.status(code).send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>LIQUID // ${code}</title>
+            <style>
+                body { 
+                    background: #000; color: #fff; font-family: 'Inter', sans-serif; 
+                    display: flex; align-items: center; justify-content: center; 
+                    height: 100vh; margin: 0; text-align: center;
+                }
+                .err-box { 
+                    border: 1px solid rgba(255,255,255,0.1); padding: 50px; 
+                    border-radius: 20px; background: rgba(255,255,255,0.02); 
+                    backdrop-filter: blur(20px); max-width: 450px;
+                }
+                h1 { font-size: 5rem; margin: 0; color: #fff; letter-spacing: -4px; line-height: 0.9; }
+                .status { color: #ff3e3e; font-weight: 900; letter-spacing: 3px; font-size: 0.7rem; margin-top: 10px; text-transform: uppercase; }
+                p { color: #777; margin: 20px 0 40px; font-size: 0.85rem; line-height: 1.6; }
+                b { color: #fff; border-bottom: 1px solid #fff; }
+                .nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+                .links { 
+                    color: #fff; text-decoration: none; font-size: 0.65rem; font-weight: 900; 
+                    border: 1px solid rgba(255,255,255,0.2); padding: 12px 20px; 
+                    border-radius: 6px; text-transform: uppercase; transition: 0.2s;
+                }
+                .links:hover { background: #fff; color: #000; border-color: #fff; }
+            </style>
+        </head>
+        <body>
+            <div class="err-box">
+                <h1>${code}</h1>
+                <div class="status">${title}</div>
+                <p>${subMessage}</p>
+                <div class="nav">
+                    <a class="links" href="/dash">Dash</a>
+                    <a class="links" href="/files">Files</a>
+                    <a class="links" href="/download">Download</a>
+                </div>
+            </div>
+        </body>
+        </html>
+    `);
+}
 }
