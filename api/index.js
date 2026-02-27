@@ -10,7 +10,6 @@ import { sendWebhookLog } from './utils/webhook.js';
 
 dotenv.config({ path: '.env.local' });
 
-// Startup verification (trimmed logs for cleanliness)
 if (!process.env.DISCORD_WEBHOOK_URL) {
     console.warn('⚠️  [STARTUP] DISCORD_WEBHOOK_URL not found in environment!');
 }
