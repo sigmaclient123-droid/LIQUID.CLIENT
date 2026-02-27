@@ -21,6 +21,14 @@ export async function handleDataManagement(req, res) {
         const body = req.body;
         const { action, ...params } = body;
 
+        if (action !== 'increment_download') {
+            if (!authHeader || authHeader !== process.env.SECRET_KEY) {
+                return res.status(401).json({ 
+                    'Unauthorized': 'To interact with any of the non static liquid APIs you must supply the secret key' 
+                });
+            }
+        }
+
         if (!action) {
             return res.status(400).json({
                 error: 'MissingRequiredField',
@@ -35,6 +43,10 @@ export async function handleDataManagement(req, res) {
                 admins: [],
                 superAdmins: [],
                 liquidStatus: "online",
+                status: "ONLINE", // For the download page
+                "menu-version": "1.0.0", // For the download page
+                "total-downloads": 0,
+                "status-colors": { "ONLINE": "#00ff00", "OFFLINE": "#ff0000", "PATCHING": "#ffff00" },
                 consoleStatuses: [],
                 knownCheats: {},
                 knownMods: {},
@@ -49,6 +61,7 @@ export async function handleDataManagement(req, res) {
 
         let result;
         switch (action) {
+            case 'increment_download': result = incrementDownload(currentData); break;
             case 'add_admin': result = addAdmin(currentData, params); break;
             case 'remove_admin': result = removeAdmin(currentData, params); break;
             case 'add_superadmin': result = addSuperAdmin(currentData, params); break;
@@ -91,6 +104,25 @@ export async function handleDataManagement(req, res) {
     }
 }
 
+function incrementDownload(data) {
+    data["total-downloads"] = (data["total-downloads"] || 0) + 1;
+    return { success: true, message: 'Download incremented', current: data["total-downloads"] };
+}
+
+function updateVersion(data, { latest, minimum, menuVersion }) {
+    if (latest) data.latestMenuVersion = latest;
+    if (minimum) data.minimumMenuVersion = minimum;
+    if (menuVersion) data["menu-version"] = menuVersion; // Updates the download page version
+    return { success: true, message: 'Updated versions' };
+}
+
+function changeLiquidStatus(data, { status }) {
+    if (!status) return { success: false, error: 'Missing status' };
+    data.liquidStatus = status.toLowerCase();
+    data.status = status.toUpperCase(); // Updates the download page status text
+    return { success: true, message: `Changed liquid status to: ${status}` };
+}
+
 
 function addAdmin(data, { userId, name }) {
     if (!userId || !name) return { success: false, error: 'Missing userId or name' };
@@ -117,12 +149,6 @@ function removeSuperAdmin(data, { name }) {
     const initialLength = data.superAdmins.length;
     data.superAdmins = data.superAdmins.filter(a => a !== name);
     return data.superAdmins.length !== initialLength ? { success: true, message: 'Removed superAdmin' } : { success: false, error: 'Not found' };
-}
-
-function changeLiquidStatus(data, { status }) {
-    if (!status) return { success: false, error: 'Missing status' };
-    data.liquidStatus = status;
-    return { success: true, message: `Changed liquid status to: ${status}` };
 }
 
 function addConsoleStatus(data, { consoleName, status }) {
@@ -176,12 +202,6 @@ function removeKnownPerson(data, { userId }) {
 function updateMotd(data, { text }) {
     data.messageOfTheDayText = text;
     return { success: true, message: 'Updated MOTD' };
-}
-
-function updateVersion(data, { latest, minimum }) {
-    if (latest) data.latestMenuVersion = latest;
-    if (minimum) data.minimumMenuVersion = minimum;
-    return { success: true, message: 'Updated versions' };
 }
 
 function addModVersionInfo(data, params) {

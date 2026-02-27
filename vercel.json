@@ -1,15 +1,27 @@
 {
   "version": 2,
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  },
   "rewrites": [
+    { "source": "/files", "destination": "/api/index.js" },
+    { 
+      "source": "/files/:path+", 
+      "destination": "https://9odtobnujm8dodjd.public.blob.vercel-storage.com/:path+" 
+    },
     { "source": "/", "destination": "/public/main-page.html" },
     { "source": "/liquid", "destination": "/public/main-page.html" },
-    { "source": "/data", "destination": "/api/index.js" },
-    { "source": "/json", "destination": "/api/index.js" },
-    { "source": "/serverdata", "destination": "/api/index.js" },
+    { "source": "/files", "destination": "/api/index.js" },
+    { "source": "/menu", "destination": "/api/index.js" },
+    { "source": "/download", "destination": "/api/index.js" },
     { "source": "/dashboard", "destination": "/api/index.js" },
     { "source": "/dash", "destination": "/api/index.js" },
     { "source": "/manage", "destination": "/api/index.js" },
-    { "source": "/websocket", "destination": "/api/index.js" },
+    { "source": "/data", "destination": "/api/index.js" },
+    { "source": "/json", "destination": "/api/index.js" },
     { "source": "/(.*)", "destination": "/api/index.js" }
   ]
 }

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LIQUID // DOWNLOAD</title>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #000; font-family: 'Inter', sans-serif; color: white; }
+        #v-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        video { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.3); }
+        
+        .container { position: relative; z-index: 2; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        .card {
+            background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.1); padding: 60px; border-radius: 24px;
+            text-align: center; max-width: 450px; width: 90%; box-shadow: 0 40px 100px rgba(0,0,0,0.8);
+        }
+        h1 { font-size: 3.5rem; font-weight: 900; margin: 0; letter-spacing: -2px; }
+        .version { color: #888; font-size: 0.9rem; margin-bottom: 30px; letter-spacing: 2px; }
+        
+        .dl-btn {
+            position: relative; display: inline-block; padding: 20px 50px; background: #fff; color: #000;
+            text-decoration: none; font-weight: 900; border-radius: 12px; transition: 0.3s;
+            cursor: pointer; border: none; text-transform: uppercase; letter-spacing: 2px; width: 100%;
+        }
+        .dl-btn:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(255,255,255,0.2); }
+        
+        .status-area {
+            margin-top: 30px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; 
+            letter-spacing: 2px; display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 10px currentColor; }
+
+        .stats-area {
+            margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);
+            display: flex; justify-content: center; gap: 20px; color: #555; font-size: 0.65rem; font-weight: 900;
+        }
+        .stat-val { color: #fff; margin-left: 5px; }
+    </style>
+</head>
+<body>
+    <div id="v-bg"><video autoplay muted loop playsinline><source src="https://files.hamburbur.org/hamburger.mp4" type="video/mp4"></video></div>
+
+    <div class="container">
+        <div class="card">
+            <h1>LIQUID.CLIENT</h1>
+            <div class="version" id="v-text">v0.0.0 // STABLE</div>
+            
+            <button class="dl-btn" id="dl-button">Download Now</button>
+
+            <div class="status-area">
+                <div class="status-dot" id="s-dot"></div>
+                <span id="s-text">LOADING...</span>
+            </div>
+
+            <div class="stats-area">
+                <div>TOTAL DOWNLOADS: <span class="stat-val" id="dl-count">0</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function applyData(data) {
+            if (!data) return;
+
+            if (data["menu-version"]) {
+                document.getElementById('v-text').innerText = `v${data["menu-version"]} // STABLE`;
+            }
+
+            if (data["total-downloads"] !== undefined) {
+                document.getElementById('dl-count').innerText = data["total-downloads"].toLocaleString();
+            }
+
+            // Update Status and Colors
+            const status = data.status || "UNKNOWN";
+            const color = data["status-colors"]?.[status] || data["default-status-color"] || "#FFFFFF";
+            
+            const textEl = document.getElementById('s-text');
+            const dotEl = document.getElementById('s-dot');
+            
+            textEl.innerText = status;
+            textEl.style.color = color;
+            dotEl.style.backgroundColor = color;
+            dotEl.style.color = color;
+        }
+
+        async function syncData() {
+            try {
+                const r = await fetch('/json');
+                if (r.ok) {
+                    const d = await r.json();
+                    applyData(d);
+                }
+            } catch (e) {}
+        }
+
+        document.getElementById('dl-button').onclick = async function() {
+            window.location.href = 'https://github.com/sigmaclient123-droid/LIQUID.CLIENT/releases/latest';
+            
+            try {
+                await fetch('/manage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'increment_download' })
+                });
+                syncData();
+            } catch (e) {}
+        };
+
+        // Initialize
+        applyData(window.LIQUID_DATA);
+        setInterval(syncData, 5000);
+    </script>
+</body>
+</html>
