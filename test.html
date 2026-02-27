@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Liquid Chat - Test Version</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 0 20px; background: #f0f0f0; }
+        .chat-box { height: 400px; border: 1px solid #ccc; padding: 10px; overflow-y: scroll; background: white; margin-bottom: 10px; }
+        .message { margin: 5px 0; padding: 5px; border-bottom: 1px solid #eee; }
+        .message small { color: #666; font-size: 0.8em; }
+        .own-message { background: #e3f2fd; }
+        .system-message { color: #666; font-style: italic; text-align: center; }
+        .error-message { color: #ff4444; font-style: italic; text-align: center; }
+        .test-mode { background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 0.9em; }
+        #message-input { width: 80%; padding: 8px; }
+        #send-button { padding: 8px 15px; }
+        .status { margin-bottom: 10px; color: #666; font-size: 0.9em; }
+        .online { float: right; }
+        button.test-btn { margin-left: 5px; padding: 4px 8px; font-size: 0.8em; }
+    </style>
+</head>
+<body>
+    <h2>Liquid Chat API Test</h2>
+    
+    <div class="test-mode">
+        <strong>⚠️ TEST VERSION</strong><br>
+        API URL: <span id="api-url-display">https://liquidclient.vercel.app</span><br>
+        <button class="test-btn" onclick="testConnection()">Test Connection</button>
+        <button class="test-btn" onclick="useProxy()">Try with Proxy</button>
+        <span id="test-result"></span>
+    </div>
+    
+    <div class="status">
+        <span id="connection-status">Starting...</span>
+        <span class="online" id="online-count">0 online</span>
+    </div>
+    
+    <div class="chat-box" id="chat-box">
+        <div class="message system-message">Loading messages...</div>
+    </div>
+    
+    <div>
+        <input type="text" id="message-input" placeholder="Type your message..." disabled>
+        <button id="send-button" disabled>Send</button>
+    </div>
+    
+    <p style="font-size: 0.8em; color: #666; margin-top: 5px;">
+        Your name: <span id="your-name"></span>
+    </p>
+
+    <script>
+        // Configuration
+        const API_BASE = 'https://liquidclient.vercel.app';
+        const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+        
+        let myName = localStorage.getItem('chat_name');
+        if (!myName) {
+            myName = 'test-' + Math.floor(Math.random() * 10000);
+            localStorage.setItem('chat_name', myName);
+        }
+        document.getElementById('your-name').textContent = myName;
+        document.getElementById('api-url-display').textContent = API_BASE;
+        
+        let lastMessageTime = 0;
+        let messageIds = new Set();
+        let pollInterval = null;
+        let presenceInterval = null;
+        let usingProxy = false;
+        
+        const chatBox = document.getElementById('chat-box');
+        const input = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-button');
+        const statusEl = document.getElementById('connection-status');
+        const onlineCountEl = document.getElementById('online-count');
+        const testResult = document.getElementById('test-result');
+        
+        function getApiUrl(path) {
+            const base = usingProxy ? CORS_PROXY + API_BASE : API_BASE;
+            return base + path;
+        }
+        
+        function useProxy() {
+            usingProxy = true;
+            testResult.innerHTML = '🔄 Using CORS proxy...';
+            loadHistory();
+        }
+        
+        function testConnection() {
+            testResult.innerHTML = 'Testing...';
+            fetch(getApiUrl('/chat/messages'), { 
+                mode: 'cors',
+                headers: { 'Origin': window.location.origin }
+            })
+            .then(res => {
+                if (res.ok) {
+                    testResult.innerHTML = '✅ Connected successfully!';
+                    loadHistory();
+                } else {
+                    testResult.innerHTML = '❌ API returned ' + res.status;
+                }
+            })
+            .catch(err => {
+                testResult.innerHTML = '❌ CORS error - try using proxy';
+                console.error('Test failed:', err);
+            });
+        }
+        
+        function addMessage(msg, isOwn) {
+            if (!msg || !msg.text) return;
+            
+            const div = document.createElement('div');
+            div.className = 'message' + (isOwn ? ' own-message' : '');
+            
+            if (msg.type === 'system') {
+                div.className = 'message system-message';
+                div.textContent = msg.text;
+            } else {
+                const time = msg.ts ? new Date(msg.ts).toLocaleTimeString() : new Date().toLocaleTimeString();
+                div.innerHTML = `
+                    <strong>${msg.from}</strong> ${isOwn ? '(you)' : ''} 
+                    <small>${time}</small><br>
+                    ${msg.text}
+                `;
+            }
+            
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        
+        function showError(message) {
+            const div = document.createElement('div');
+            div.className = 'message error-message';
+            div.textContent = '⚠️ ' + message;
+            chatBox.appendChild(div);
+        }
+        
+        function loadHistory() {
+            statusEl.textContent = 'Loading...';
+            
+            fetch(getApiUrl('/chat/messages'), {
+                mode: 'cors',
+                headers: { 
+                    'Origin': window.location.origin,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(data => {
+                chatBox.innerHTML = '';
+                
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(msg => {
+                        addMessage(msg, msg.from === myName);
+                        if (msg.ts > lastMessageTime) lastMessageTime = msg.ts;
+                    });
+                } else {
+                    addMessage({ type: 'system', text: 'No messages yet. Be the first to say something!' });
+                }
+                
+                input.disabled = false;
+                sendBtn.disabled = false;
+                statusEl.textContent = usingProxy ? 'Connected (via proxy)' : 'Connected';
+                input.focus();
+            })
+            .catch(err => {
+                chatBox.innerHTML = '';
+                addMessage({ type: 'system', text: '⚠️ Cannot connect to API' });
+                showError('CORS error: ' + err.message);
+                showError('Click "Try with Proxy" button above');
+                statusEl.textContent = 'Connection failed';
+                console.error('Chat error:', err);
+            });
+        }
+        
+        function checkNewMessages() {
+            fetch(getApiUrl('/chat/messages?after=' + lastMessageTime), {
+                mode: 'cors',
+                headers: { 'Origin': window.location.origin }
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch');
+                return res.json();
+            })
+            .then(data => {
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(msg => {
+                        if (msg.ts > lastMessageTime) {
+                            addMessage(msg, msg.from === myName);
+                            if (msg.ts > lastMessageTime) lastMessageTime = msg.ts;
+                        }
+                    });
+                }
+                statusEl.textContent = usingProxy ? 'Connected (via proxy)' : 'Connected';
+            })
+            .catch(err => {
+                statusEl.textContent = 'Reconnecting...';
+            });
+        }
+        
+        function sendMessage() {
+            const text = input.value.trim();
+            if (!text) return;
+            
+            const originalText = sendBtn.textContent;
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+            
+            fetch(getApiUrl('/chat/send'), {
+                method: 'POST',
+                mode: 'cors',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Origin': window.location.origin
+                },
+                body: JSON.stringify({ from: myName, text: text })
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('Send failed');
+                return res.json();
+            })
+            .then(() => {
+                input.value = '';
+                statusEl.textContent = 'Message sent';
+                setTimeout(() => { 
+                    statusEl.textContent = usingProxy ? 'Connected (via proxy)' : 'Connected'; 
+                }, 2000);
+            })
+            .catch(err => {
+                addMessage({
+                    from: myName,
+                    text: text + ' (sent offline)',
+                    ts: Date.now()
+                }, true);
+                input.value = '';
+                statusEl.textContent = 'Offline mode';
+                console.error('Send error:', err);
+            })
+            .finally(() => {
+                sendBtn.disabled = false;
+                sendBtn.textContent = originalText;
+                input.focus();
+            });
+        }
+        
+        function updatePresence() {
+            fetch(getApiUrl('/chat/presence'), {
+                method: 'POST',
+                mode: 'cors',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Origin': window.location.origin
+                },
+                body: JSON.stringify({ from: myName })
+            }).catch(err => console.log('Presence update error:', err));
+            
+            fetch(getApiUrl('/chat/presence-count'), {
+                mode: 'cors',
+                headers: { 'Origin': window.location.origin }
+            })
+            .then(res => res.json())
+            .then(data => {
+                onlineCountEl.textContent = (data.count || 1) + ' online';
+            })
+            .catch(() => {
+                onlineCountEl.textContent = '? online';
+            });
+        }
+        
+        // Initialize
+        setTimeout(() => {
+            testConnection();
+        }, 500);
+        
+        pollInterval = setInterval(checkNewMessages, 3000);
+        presenceInterval = setInterval(updatePresence, 15000);
+        
+        sendBtn.addEventListener('click', sendMessage);
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        window.addEventListener('beforeunload', () => {
+            if (pollInterval) clearInterval(pollInterval);
+            if (presenceInterval) clearInterval(presenceInterval);
+        });
+    </script>
+</body>
+</html>

@@ -684,6 +684,277 @@ if ((pathname === '/api/telemetry' || pathname === '/telemetry-stats') && req.me
         }
     }
 
+    if (url.pathname === '/chat/send') {
+        if (req.method !== 'POST') {
+            res.setHeader('Allow', 'POST');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            return res.status(405).json({ error: 'MethodNotAllowed' });
+        }
+    
+        try {
+            const raw = await new Promise((resolve) => {
+                let data = '';
+                req.on('data', (chunk) => (data += chunk));
+                req.on('end', () => resolve(data));
+            });
+    
+            const body = raw ? JSON.parse(raw) : {};
+            const from = (body.from || '').toString().trim().slice(0, 32);
+            const text = (body.text || '').toString().trim().slice(0, 500);
+            
+            console.log('[CHAT SEND]', { from, text }); // Debug log
+            
+            if (!from || !text) {
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                return res.status(400).json({ error: 'InvalidPayload' });
+            }
+    
+            // Create message record with unique ID
+            const record = {
+                type: 'chatMessage',
+                from,
+                text,
+                ts: Date.now(),
+                id: `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`
+            };
+    
+            // Store in history - using rpush to append to the list
+            try {
+                await kv.rpush('chat:history', JSON.stringify(record));
+                
+                // Keep only last 1000 messages (increased from 200)
+                await kv.ltrim('chat:history', -1000, -1);
+                
+                // Set expiry to 7 days (604800 seconds)
+                await kv.expire('chat:history', 60 * 60 * 24 * 7);
+                
+                console.log('[CHAT] Message stored in KV, new length:', await kv.llen('chat:history'));
+            } catch (e) {
+                console.error('[CHAT] KV store error:', e);
+            }
+    
+            // Update presence
+            try {
+                await kv.set(`chat:presence:${from}`, JSON.stringify({ lastSeen: Date.now() }), { ex: 30 });
+            } catch (e) {}
+    
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Content-Type', 'application/json');
+            return res.status(200).json({ ok: true, ts: record.ts, id: record.id });
+        } catch (e) {
+            console.error('[CHAT] Send error:', e);
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            return res.status(400).json({ error: 'BadRequest' });
+        }
+    }
+    
+    if (url.pathname === '/chat/presence') {
+        if (req.method !== 'POST') {
+            res.setHeader('Allow', 'POST');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            return res.status(405).json({ error: 'MethodNotAllowed' });
+        }
+    
+        try {
+            const raw = await new Promise((resolve) => {
+                let data = '';
+                req.on('data', (chunk) => (data += chunk));
+                req.on('end', () => resolve(data));
+            });
+    
+            const body = raw ? JSON.parse(raw) : {};
+            const from = (body.from || '').toString().trim().slice(0, 32);
+            
+            if (from) {
+                try {
+                    await kv.set(`chat:presence:${from}`, JSON.stringify({ lastSeen: Date.now() }), { ex: 30 });
+                } catch (e) {}
+            }
+    
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            return res.status(200).json({ ok: true });
+        } catch (e) {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            return res.status(400).json({ error: 'BadRequest' });
+        }
+    }
+
+    if (url.pathname === '/chat/messages') {
+        if (req.method !== 'GET') {
+            res.setHeader('Allow', 'GET');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            return res.status(405).json({ error: 'MethodNotAllowed' });
+        }
+    
+        try {
+            // Get all messages from KV store
+            const history = await kv.lrange('chat:history', 0, -1) || [];
+            
+            console.log(`[CHAT] Loading ${history.length} messages from history`);
+            
+            const messages = history
+                .map(msg => {
+                    try {
+                        return JSON.parse(msg);
+                    } catch {
+                        return null;
+                    }
+                })
+                .filter(msg => msg !== null) // Remove any failed parses
+                .sort((a, b) => (a.ts || 0) - (b.ts || 0)); // Sort by timestamp
+    
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-cache');
+            
+            return res.status(200).json({ 
+                messages,
+                count: messages.length,
+                timestamp: Date.now()
+            });
+        } catch (e) {
+            console.error('[CHAT] Messages error:', e);
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            return res.status(500).json({ error: 'InternalError' });
+        }
+    }
+
+    if (url.pathname === '/chat/stream') {
+        if (req.method !== 'GET') {
+            res.setHeader('Allow', 'GET');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            return res.status(405).json({ error: 'MethodNotAllowed' });
+        }
+    
+        const from = (url.searchParams.get('from') || '').toString().trim().slice(0, 32);
+    
+        res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-cache, no-transform');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('X-Accel-Buffering', 'no'); // Disable proxy buffering
+    
+        const writeEvent = (eventName, dataObj) => {
+            try {
+                res.write(`event: ${eventName}\n`);
+                res.write(`data: ${JSON.stringify(dataObj)}\n\n`);
+            } catch (e) {
+                console.error('Write error:', e);
+            }
+        };
+    
+        // Get current history length
+        let totalLen = 0;
+        try {
+            totalLen = (await kv.llen('chat:history')) || 0;
+        } catch (e) {}
+    
+        // Start from the last 50 messages or all if less
+        const startCursor = Math.max(0, totalLen - 50);
+    
+        // Send welcome event with user info
+        writeEvent('welcome', { 
+            from, 
+            cursor: totalLen, 
+            ts: Date.now() 
+        });
+    
+        // Send recent history
+        try {
+            const history = await kv.lrange('chat:history', startCursor, -1);
+            if (Array.isArray(history)) {
+                for (const raw of history) {
+                    try {
+                        const msg = JSON.parse(raw);
+                        writeEvent('message', msg);
+                    } catch (e) {}
+                }
+            }
+        } catch (e) {}
+    
+        // Set up presence
+        let lastSentCursor = totalLen;
+        
+        // Update presence immediately
+        try {
+            if (from) await kv.set(`chat:presence:${from}`, '1', { ex: 30 });
+        } catch (e) {}
+    
+        // Send initial presence count
+        try {
+            const keys = await kv.keys('chat:presence:*');
+            writeEvent('presence', { 
+                onlineCount: keys?.length || 0, 
+                ts: Date.now() 
+            });
+        } catch (e) {}
+    
+        const startTime = Date.now();
+        
+        const poll = async () => {
+            // Check if connection should close (55 second timeout for Vercel)
+            if (Date.now() - startTime > 55000) {
+                try { 
+                    writeEvent('close', { reason: 'timeout' });
+                    res.end(); 
+                } catch (e) {}
+                return;
+            }
+    
+            try {
+                // Update presence
+                if (from) await kv.set(`chat:presence:${from}`, '1', { ex: 30 });
+    
+                // Check for new messages
+                const currentLen = (await kv.llen('chat:history')) || 0;
+                
+                if (currentLen > lastSentCursor) {
+                    const newMessages = await kv.lrange('chat:history', lastSentCursor, currentLen - 1);
+                    if (Array.isArray(newMessages)) {
+                        for (const raw of newMessages) {
+                            try {
+                                const msg = JSON.parse(raw);
+                                writeEvent('message', msg);
+                            } catch (e) {}
+                        }
+                    }
+                    lastSentCursor = currentLen;
+                }
+    
+                // Update presence count every 5 seconds
+                if (Math.floor(Date.now() / 5000) !== Math.floor((Date.now() - 5000) / 5000)) {
+                    const keys = await kv.keys('chat:presence:*');
+                    writeEvent('presence', { 
+                        onlineCount: keys?.length || 0, 
+                        ts: Date.now() 
+                    });
+                }
+    
+                // Send heartbeat every 15 seconds
+                if (Math.floor(Date.now() / 15000) !== Math.floor((Date.now() - 15000) / 15000)) {
+                    writeEvent('heartbeat', { ts: Date.now() });
+                }
+    
+                // Continue polling
+                setTimeout(poll, 1000);
+            } catch (e) {
+                console.error('[STREAM] Poll error:', e);
+                setTimeout(poll, 2000);
+            }
+        };
+    
+        // Handle client disconnect
+        req.on('close', () => {
+            try { 
+                res.end(); 
+            } catch (e) {}
+        });
+    
+        // Start polling
+        setTimeout(poll, 100);
+        return;
+    }
+
     if (url.pathname === '/chat') {
         res.setHeader('Content-Type', 'text/html');
         return res.status(200).send(`
@@ -694,265 +965,617 @@ if ((pathname === '/api/telemetry' || pathname === '/telemetry-stats') && req.me
                 <title>LIQUID // CHAT</title>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    
                     body, html {
-                        margin:0; padding:0; height:100%;
-                        background: radial-gradient(circle at top, #101020, #000000 60%);
-                        font-family:'Inter',sans-serif; color:#fff;
+                        height: 100%;
+                        background: radial-gradient(circle at top, #101020, #000000 80%);
+                        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                        color: #fff;
                     }
-                    .wrap {
-                        display:flex; flex-direction:column;
-                        height:100vh; max-width:900px;
-                        margin:0 auto; padding:24px 16px;
-                        box-sizing:border-box;
+    
+                    .container {
+                        display: flex;
+                        flex-direction: column;
+                        height: 100vh;
+                        max-width: 900px;
+                        margin: 0 auto;
+                        padding: 20px;
                     }
-                    h1 {
-                        margin:0 0 4px;
-                        font-size:1.8rem; letter-spacing:4px;
-                        text-transform:uppercase;
+    
+                    .header {
+                        margin-bottom: 20px;
                     }
-                    .tag {
-                        font-size:0.65rem; color:#777;
-                        letter-spacing:3px; text-transform:uppercase;
-                        margin-bottom:10px;
+    
+                    .header h1 {
+                        font-size: 2.5rem;
+                        font-weight: 800;
+                        letter-spacing: -2px;
+                        background: linear-gradient(135deg, #fff, #aaccff);
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
                     }
-                    .status {
-                        font-size:0.7rem; color:#888; margin-bottom:8px;
+    
+                    .status-bar {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        font-size: 0.75rem;
+                        color: #8899aa;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                        margin-bottom: 10px;
                     }
-                    .shell {
-                        flex:1;
-                        border-radius:20px;
-                        border:1px solid rgba(255,255,255,0.06);
-                        background:linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
-                        backdrop-filter:blur(20px);
-                        padding:16px;
-                        display:flex;
-                        flex-direction:column;
-                        box-shadow:0 30px 80px rgba(0,0,0,0.8);
+    
+                    .online-count {
+                        background: rgba(255,255,255,0.1);
+                        padding: 4px 12px;
+                        border-radius: 20px;
+                        border: 1px solid rgba(255,255,255,0.1);
                     }
-                    .chat-box {
-                        flex:1;
-                        border-radius:14px;
-                        background:rgba(0,0,0,0.55);
-                        padding:12px 12px 16px;
-                        display:flex;
-                        flex-direction:column;
-                        gap:8px;
-                        overflow-y:auto;
-                        font-size:0.8rem;
-                        scroll-behavior:smooth;
+    
+                    .chat-container {
+                        flex: 1;
+                        background: rgba(20, 25, 35, 0.6);
+                        backdrop-filter: blur(20px);
+                        border: 1px solid rgba(255,255,255,0.05);
+                        border-radius: 24px;
+                        padding: 20px;
+                        display: flex;
+                        flex-direction: column;
+                        box-shadow: 0 20px 40px rgba(0,0,0,0.4);
                     }
-                    .chat-box::-webkit-scrollbar { width:4px; }
-                    .chat-box::-webkit-scrollbar-thumb {
-                        background:#333; border-radius:4px;
+    
+                    .messages {
+                        flex: 1;
+                        overflow-y: auto;
+                        padding: 10px;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 8px;
                     }
-                    .msg {
-                        padding:8px 10px;
-                        border-radius:12px;
-                        background:rgba(255,255,255,0.03);
-                        animation:fadeInUp 0.18s ease-out;
-                        border-left:2px solid transparent;
+    
+                    .messages::-webkit-scrollbar {
+                        width: 4px;
                     }
-                    .msg.me {
-                        background:rgba(0,180,255,0.20);
-                        border-left-color:rgba(0,200,255,0.7);
+    
+                    .messages::-webkit-scrollbar-track {
+                        background: rgba(255,255,255,0.02);
                     }
-                    .msg.mention-me {
-                        background:rgba(255,210,0,0.16);
-                        border-left-color:#ffd200;
-                        box-shadow:0 0 16px rgba(255,210,0,0.3);
-                        animation:pulse 0.7s ease-out;
+    
+                    .messages::-webkit-scrollbar-thumb {
+                        background: rgba(255,255,255,0.2);
+                        border-radius: 4px;
                     }
-                    .meta {
-                        font-size:0.65rem; color:#9090ff;
-                        margin-bottom:2px; text-transform:uppercase;
-                        letter-spacing:1px;
+    
+                    .message {
+                        padding: 10px 14px;
+                        background: rgba(255,255,255,0.03);
+                        border-radius: 16px;
+                        border-left: 2px solid transparent;
+                        animation: fadeIn 0.2s ease;
+                        max-width: 80%;
                     }
-                    .meta span.you { color:#ffffff; }
-                    .sys {
-                        font-size:0.7rem; color:#888;
-                        text-align:center; padding:3px 0;
-                        opacity:0.85; animation:fadeIn 0.2s ease-out;
+    
+                    .message.own {
+                        background: rgba(0, 160, 255, 0.15);
+                        border-left-color: #00a0ff;
+                        align-self: flex-end;
                     }
-                    form {
-                        margin-top:10px; display:flex; gap:10px;
-                        align-items:center;
+    
+                    .message.mention {
+                        background: rgba(255, 210, 0, 0.15);
+                        border-left-color: #ffd200;
+                        box-shadow: 0 0 20px rgba(255, 210, 0, 0.2);
                     }
-                    input[type="text"] {
-                        flex:1;
-                        padding:11px 14px;
-                        border-radius:999px;
-                        border:1px solid rgba(255,255,255,0.12);
-                        background:rgba(0,0,0,0.75);
-                        color:#fff;
-                        font-size:0.8rem;
-                        outline:none;
-                        transition:border-color 0.18s, background 0.18s;
+    
+                    .message.system {
+                        background: transparent;
+                        text-align: center;
+                        color: #8899aa;
+                        font-size: 0.75rem;
+                        max-width: 100%;
                     }
-                    input[type="text"]:focus {
-                        border-color:rgba(0,200,255,0.9);
-                        background:rgba(0,0,0,0.9);
+    
+                    .message-header {
+                        font-size: 0.7rem;
+                        font-weight: 600;
+                        color: #8899aa;
+                        margin-bottom: 4px;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
                     }
-                    button {
-                        padding:10px 18px;
-                        border-radius:999px;
-                        border:none;
-                        font-size:0.72rem;
-                        font-weight:900;
-                        letter-spacing:1px;
-                        text-transform:uppercase;
-                        cursor:pointer;
-                        background:#ffffff;
-                        color:#000;
-                        transition:transform 0.15s ease, box-shadow 0.15s ease, background 0.15s;
+    
+                    .message-header .you {
+                        color: #00a0ff;
                     }
-                    button:hover {
-                        transform:translateY(-1px);
-                        box-shadow:0 10px 24px rgba(255,255,255,0.2);
+    
+                    .message-content {
+                        font-size: 0.9rem;
+                        line-height: 1.4;
+                        word-break: break-word;
                     }
-                    button:active {
-                        transform:translateY(0);
-                        box-shadow:none;
+    
+                    .message-time {
+                        font-size: 0.6rem;
+                        color: #667788;
+                        margin-top: 4px;
+                        text-align: right;
                     }
+    
+                    .input-area {
+                        margin-top: 20px;
+                        display: flex;
+                        gap: 10px;
+                    }
+    
+                    #message-input {
+                        flex: 1;
+                        background: rgba(0, 0, 0, 0.5);
+                        border: 1px solid rgba(255,255,255,0.1);
+                        border-radius: 30px;
+                        padding: 14px 20px;
+                        color: #fff;
+                        font-size: 0.9rem;
+                        outline: none;
+                        transition: all 0.2s;
+                    }
+    
+                    #message-input:focus {
+                        border-color: #00a0ff;
+                        background: rgba(0, 0, 0, 0.7);
+                    }
+    
+                    #message-input:disabled {
+                        opacity: 0.5;
+                        cursor: not-allowed;
+                    }
+    
+                    #send-button {
+                        background: #fff;
+                        color: #000;
+                        border: none;
+                        border-radius: 30px;
+                        padding: 14px 30px;
+                        font-weight: 700;
+                        font-size: 0.85rem;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    }
+    
+                    #send-button:hover:not(:disabled) {
+                        transform: translateY(-2px);
+                        box-shadow: 0 10px 20px rgba(255,255,255,0.2);
+                    }
+    
+                    #send-button:disabled {
+                        opacity: 0.5;
+                        cursor: not-allowed;
+                    }
+    
                     .hint {
-                        margin-top:4px;
-                        font-size:0.65rem;
-                        color:#666;
-                        letter-spacing:1px;
-                        text-transform:uppercase;
+                        margin-top: 10px;
+                        font-size: 0.7rem;
+                        color: #667788;
+                        text-align: center;
                     }
-                    .hint b { color:#999; }
-                    @keyframes fadeInUp {
-                        from { opacity:0; transform:translateY(4px); }
-                        to { opacity:1; transform:translateY(0); }
+    
+                    .hint b {
+                        color: #99aabb;
+                        background: rgba(255,255,255,0.1);
+                        padding: 2px 8px;
+                        border-radius: 12px;
                     }
+    
                     @keyframes fadeIn {
-                        from { opacity:0; }
-                        to { opacity:1; }
+                        from { opacity: 0; transform: translateY(10px); }
+                        to { opacity: 1; transform: translateY(0); }
                     }
-                    @keyframes pulse {
-                        0% { transform:scale(1); }
-                        50% { transform:scale(1.02); }
-                        100% { transform:scale(1); }
+    
+                    .connection-status {
+                        display: inline-block;
+                        width: 8px;
+                        height: 8px;
+                        border-radius: 50%;
+                        margin-right: 6px;
+                    }
+    
+                    .connection-status.connected {
+                        background: #00ff88;
+                        box-shadow: 0 0 10px #00ff88;
+                    }
+    
+                    .connection-status.disconnected {
+                        background: #ff4444;
+                    }
+    
+                    .connection-status.connecting {
+                        background: #ffaa00;
                     }
                 </style>
             </head>
             <body>
-                <div class="wrap">
-                    <div>
+                <div class="container">
+                    <div class="header">
                         <h1>Liquid Chat</h1>
-                        <div class="tag">Realtime anonymous room</div>
-                        <div class="status" id="st">Connecting...</div>
                     </div>
-                    <div class="shell">
-                        <div id="chat" class="chat-box"></div>
-                        <form id="f">
-                            <input id="msg" type="text" autocomplete="off" placeholder="Message the room...">
-                            <button type="submit">Send</button>
-                        </form>
+                    
+                    <div class="status-bar">
+                        <div>
+                            <span class="connection-status" id="connection-status"></span>
+                            <span id="connection-text">Connecting...</span>
+                        </div>
+                        <div class="online-count" id="online-count">0 online</div>
+                    </div>
+    
+                    <div class="chat-container">
+                        <div class="messages" id="messages"></div>
+                        
+                        <div class="input-area">
+                            <input 
+                                type="text" 
+                                id="message-input" 
+                                placeholder="Type your message..." 
+                                autocomplete="off"
+                            >
+                            <button id="send-button">Send</button>
+                        </div>
+                        
                         <div class="hint">
-                            Use <b>@anonymous-1234</b> style to ping someone. Your handle is assigned automatically.
+                            <b>@username</b> to mention someone · Your name: <span id="your-name"></span>
                         </div>
                     </div>
                 </div>
+    
                 <script>
-                    const chatEl = document.getElementById('chat');
-                    const form = document.getElementById('f');
-                    const input = document.getElementById('msg');
-                    const statusEl = document.getElementById('st');
-
-                    let myName = null;
-                    let onlineCount = 0;
-
-                    function renderStatus() {
-                        if (myName) {
-                            const countLabel = onlineCount > 0 ? onlineCount : 1;
-                            statusEl.textContent = 'Connected as ' + myName + ' · ' + countLabel + ' online';
-                        } else {
-                            statusEl.textContent = 'Connecting...';
+                    // Configuration
+                    var POLL_INTERVAL = 2000;
+                    var PRESENCE_INTERVAL = 15000;
+                    
+                    // State
+                    var myName = localStorage.getItem('liquid_chat_name');
+                    if (!myName) {
+                        var randomId = Math.floor(1000 + Math.random() * 9000);
+                        myName = 'anonymous-' + randomId;
+                        localStorage.setItem('liquid_chat_name', myName);
+                    }
+                    
+                    document.getElementById('your-name').textContent = myName;
+                    
+                    var lastMessageTime = 0;
+                    var onlineCount = 1;
+                    var isConnected = false;
+                    var pollTimeout = null;
+                    var messagesLoaded = false;
+                    var messageIds = {};
+                    
+                    // DOM elements
+                    var messagesEl = document.getElementById('messages');
+                    var inputEl = document.getElementById('message-input');
+                    var sendBtn = document.getElementById('send-button');
+                    var connectionStatus = document.getElementById('connection-status');
+                    var connectionText = document.getElementById('connection-text');
+                    var onlineCountEl = document.getElementById('online-count');
+                    
+                    // Helper: Format time
+                    function formatTime(timestamp) {
+                        var date = new Date(timestamp);
+                        var hours = date.getHours();
+                        var minutes = date.getMinutes();
+                        var ampm = hours >= 12 ? 'PM' : 'AM';
+                        hours = hours % 12;
+                        hours = hours ? hours : 12;
+                        minutes = minutes < 10 ? '0' + minutes : minutes;
+                        return hours + ':' + minutes + ' ' + ampm;
+                    }
+                    
+                    // Helper: Clear messages
+                    function clearMessages() {
+                        messagesEl.innerHTML = '';
+                        messageIds = {};
+                    }
+                    
+                    // Helper: Add message to UI
+                    function addMessage(message, isOwn, isMention) {
+                        if (!message || !message.text) return;
+                        
+                        if (isOwn === undefined) isOwn = false;
+                        if (isMention === undefined) isMention = false;
+                        
+                        // Check for duplicate using message ID
+                        if (message.id && messageIds[message.id]) {
+                            return;
                         }
-                    }
-
-                    function appendSystem(text) {
-                        const div = document.createElement('div');
-                        div.className = 'sys';
-                        div.textContent = text;
-                        chatEl.appendChild(div);
-                        chatEl.scrollTop = chatEl.scrollHeight;
-                    }
-
-                    function appendMessage(from, text, me, mentionMe) {
-                        const wrap = document.createElement('div');
-                        wrap.className = 'msg' + (me ? ' me' : '') + (mentionMe ? ' mention-me' : '');
-                        const meta = document.createElement('div');
-                        meta.className = 'meta';
-
-                        if (me) {
-                            const you = document.createElement('span');
-                            you.className = 'you';
-                            you.textContent = from + ' (you)';
-                            meta.appendChild(you);
-                        } else {
-                            meta.textContent = from;
+                        
+                        // Add to tracking set
+                        if (message.id) {
+                            messageIds[message.id] = true;
                         }
-
-                        const body = document.createElement('div');
-                        body.textContent = text;
-                        wrap.appendChild(meta);
-                        wrap.appendChild(body);
-                        chatEl.appendChild(wrap);
-                        chatEl.scrollTop = chatEl.scrollHeight;
+                        
+                        var messageDiv = document.createElement('div');
+                        messageDiv.className = 'message';
+                        
+                        if (message.type === 'system') {
+                            messageDiv.classList.add('system');
+                            messageDiv.textContent = message.text;
+                        } else {
+                            if (isOwn) messageDiv.classList.add('own');
+                            if (isMention) messageDiv.classList.add('mention');
+                            
+                            var header = document.createElement('div');
+                            header.className = 'message-header';
+                            
+                            var nameSpan = document.createElement('span');
+                            nameSpan.textContent = message.from;
+                            if (isOwn) {
+                                var youSpan = document.createElement('span');
+                                youSpan.className = 'you';
+                                youSpan.textContent = ' (you)';
+                                nameSpan.appendChild(youSpan);
+                            }
+                            header.appendChild(nameSpan);
+                            
+                            var content = document.createElement('div');
+                            content.className = 'message-content';
+                            content.textContent = message.text;
+                            
+                            var time = document.createElement('div');
+                            time.className = 'message-time';
+                            time.textContent = formatTime(message.ts || Date.now());
+                            
+                            messageDiv.appendChild(header);
+                            messageDiv.appendChild(content);
+                            messageDiv.appendChild(time);
+                        }
+                        
+                        messagesEl.appendChild(messageDiv);
+                        messagesEl.scrollTop = messagesEl.scrollHeight;
                     }
-
-                    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-                    const wsUrl = proto + '://' + location.host + '/chat-socket';
-                    const ws = new WebSocket(wsUrl);
-
-                    ws.onopen = () => {
-                        statusEl.textContent = 'Connecting to chat...';
-                    };
-
-                    ws.onclose = () => {
-                        statusEl.textContent = 'Disconnected';
-                        appendSystem('Disconnected from server.');
-                    };
-
-                    ws.onmessage = (ev) => {
-                        try {
-                            const msg = JSON.parse(ev.data);
-                            if (msg.type === 'chatWelcome') {
-                                myName = msg.username;
-                                renderStatus();
-                                appendSystem('You joined as ' + myName);
-                                return;
+                    
+                    // Helper: Add system message
+                    function addSystemMessage(text) {
+                        addMessage({ type: 'system', text: text }, false, false);
+                    }
+                    
+                    // Load all messages (for new users)
+                    function loadAllMessages() {
+                        addSystemMessage('Loading chat history...');
+                        
+                        fetch('/chat/messages')
+                            .then(function(response) {
+                                if (!response.ok) {
+                                    throw new Error('Failed to load messages');
+                                }
+                                return response.json();
+                            })
+                            .then(function(data) {
+                                if (data.messages && data.messages.length > 0) {
+                                    clearMessages();
+                                    
+                                    for (var i = 0; i < data.messages.length; i++) {
+                                        var msg = data.messages[i];
+                                        var isOwn = (msg.from === myName);
+                                        var isMention = false;
+                                        
+                                        if (msg.mentions && Array.isArray(msg.mentions)) {
+                                            isMention = msg.mentions.includes(myName);
+                                        }
+                                        
+                                        addMessage(msg, isOwn, isMention);
+                                        
+                                        if (msg.ts > lastMessageTime) {
+                                            lastMessageTime = msg.ts;
+                                        }
+                                    }
+                                    
+                                    addSystemMessage('Loaded ' + data.messages.length + ' messages from history');
+                                    console.log('Loaded ' + data.messages.length + ' historical messages');
+                                } else {
+                                    addSystemMessage('No message history');
+                                }
+                                
+                                messagesLoaded = true;
+                            })
+                            .catch(function(error) {
+                                console.error('Failed to load messages:', error);
+                                addSystemMessage('Failed to load message history');
+                                messagesLoaded = true;
+                            });
+                    }
+                    
+                    // Fetch new messages (polling)
+                    function fetchNewMessages() {
+                        if (!messagesLoaded) return;
+                        
+                        fetch('/chat/messages?after=' + lastMessageTime)
+                            .then(function(response) {
+                                if (!response.ok) {
+                                    throw new Error('Failed to fetch messages');
+                                }
+                                return response.json();
+                            })
+                            .then(function(data) {
+                                if (data.messages && data.messages.length > 0) {
+                                    for (var i = 0; i < data.messages.length; i++) {
+                                        var msg = data.messages[i];
+                                        
+                                        if (msg.ts > lastMessageTime) {
+                                            var isOwn = (msg.from === myName);
+                                            var isMention = false;
+                                            
+                                            if (msg.mentions && Array.isArray(msg.mentions)) {
+                                                isMention = msg.mentions.includes(myName);
+                                            }
+                                            
+                                            addMessage(msg, isOwn, isMention);
+                                            
+                                            if (msg.ts > lastMessageTime) {
+                                                lastMessageTime = msg.ts;
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                if (!isConnected) {
+                                    isConnected = true;
+                                    connectionStatus.className = 'connection-status connected';
+                                    connectionText.textContent = 'Connected';
+                                }
+                            })
+                            .catch(function(error) {
+                                console.error('Poll error:', error);
+                                
+                                if (isConnected) {
+                                    isConnected = false;
+                                    connectionStatus.className = 'connection-status disconnected';
+                                    connectionText.textContent = 'Disconnected (reconnecting...)';
+                                }
+                            })
+                            .finally(function() {
+                                pollTimeout = setTimeout(fetchNewMessages, POLL_INTERVAL);
+                            });
+                    }
+                    
+                    // Send message
+                    function sendMessage() {
+                        var text = inputEl.value.trim();
+                        if (!text) return;
+                        
+                        inputEl.disabled = true;
+                        sendBtn.disabled = true;
+                        sendBtn.textContent = 'Sending...';
+                        
+                        fetch('/chat/send', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                from: myName, 
+                                text: text,
+                                timestamp: Date.now()
+                            })
+                        })
+                        .then(function(response) {
+                            if (!response.ok) {
+                                return response.json().then(function(err) {
+                                    throw new Error(err.error || 'Failed to send');
+                                });
                             }
-                            if (msg.type === 'chatPresence') {
-                                onlineCount = msg.count || 0;
-                                renderStatus();
-                                return;
+                            return response.json();
+                        })
+                        .then(function(result) {
+                            inputEl.value = '';
+                            
+                            addMessage({
+                                id: result.id,
+                                from: myName,
+                                text: text,
+                                ts: result.ts || Date.now()
+                            }, true, false);
+                            
+                            if (result.ts > lastMessageTime) {
+                                lastMessageTime = result.ts;
                             }
-                            if (msg.type === 'chatMessage') {
-                                const from = msg.from || 'user';
-                                const me = !!myName && from === myName;
-                                const mentionMe = Array.isArray(msg.mentions) && myName && msg.mentions.includes(myName);
-                                appendMessage(from, msg.text || '', me, mentionMe);
-                            } else if (msg.type === 'chatSystem') {
-                                appendSystem(msg.text || '');
-                            }
-                        } catch {}
-                    };
-
-                    form.addEventListener('submit', (e) => {
-                        e.preventDefault();
-                        const text = (input.value || '').trim();
-                        if (!text || ws.readyState !== 1) return;
-                        ws.send(JSON.stringify({ type: 'chatMessage', text }));
-                        input.value = '';
+                        })
+                        .catch(function(error) {
+                            console.error('Send error:', error);
+                            addSystemMessage('⚠️ Failed to send message. Please try again.');
+                        })
+                        .finally(function() {
+                            inputEl.disabled = false;
+                            sendBtn.disabled = false;
+                            sendBtn.textContent = 'Send';
+                            inputEl.focus();
+                        });
+                    }
+                    
+                    // Update presence
+                    function updatePresence() {
+                        fetch('/chat/presence', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ from: myName })
+                        })
+                        .catch(function(error) {
+                            console.error('Presence update error:', error);
+                        });
+                        
+                        fetch('/chat/presence-count')
+                            .then(function(response) {
+                                if (response.ok) {
+                                    return response.json();
+                                }
+                                throw new Error('Failed to get presence count');
+                            })
+                            .then(function(data) {
+                                onlineCount = data.count || 1;
+                                onlineCountEl.textContent = onlineCount + ' online';
+                            })
+                            .catch(function(error) {
+                                console.error('Presence count error:', error);
+                            });
+                    }
+                    
+                    // Event listeners
+                    sendBtn.addEventListener('click', sendMessage);
+                    
+                    inputEl.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            sendMessage();
+                        }
+                    });
+                    
+                    // Initialize
+                    function init() {
+                        connectionStatus.className = 'connection-status connecting';
+                        connectionText.textContent = 'Connecting...';
+                        
+                        loadAllMessages();
+                        
+                        fetchNewMessages();
+                        
+                        updatePresence();
+                        setInterval(updatePresence, PRESENCE_INTERVAL);
+                        
+                        inputEl.focus();
+                    }
+                    
+                    init();
+                    
+                    window.addEventListener('beforeunload', function() {
+                        if (pollTimeout) {
+                            clearTimeout(pollTimeout);
+                        }
                     });
                 </script>
             </body>
             </html>
         `);
     }
+
+// Add presence count endpoint
+if (url.pathname === '/chat/presence-count') {
+    if (req.method !== 'GET') {
+        res.setHeader('Allow', 'GET');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return res.status(405).json({ error: 'MethodNotAllowed' });
+    }
+
+    try {
+        const keys = await kv.keys('chat:presence:*');
+        const count = keys?.length || 0;
+        
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Content-Type', 'application/json');
+        return res.status(200).json({ count });
+    } catch (e) {
+        console.error('[CHAT] Presence count error:', e);
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return res.status(500).json({ error: 'InternalError' });
+    }
+}
 
     if (url.pathname === '/dashboard' || url.pathname === '/dash') {
         if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
@@ -1101,16 +1724,38 @@ if ((pathname === '/api/telemetry' || pathname === '/telemetry-stats') && req.me
         `);
     }
 
-    if (['/data', '/json', '/serverdata'].includes(url.pathname) || url.pathname.startsWith('/liquiddata')) {
-        let currentData = await kv.get('liquid_data');
-        if (!currentData) {
-            const fallbackPath = path.join(process.cwd(), 'api', 'data', 'data.json');
-            if (fs.existsSync(fallbackPath)) {
-                currentData = JSON.parse(fs.readFileSync(fallbackPath, 'utf8'));
-            }
+    if (
+        ['/data', '/json', '/serverdata'].includes(url.pathname) ||
+        url.pathname.startsWith('/liquiddata')
+      ) {
+        let currentData = null;
+      
+        const fallbackPath = path.join(process.cwd(), 'api', 'data', 'data.json');
+        if (fs.existsSync(fallbackPath)) {
+          try {
+            currentData = JSON.parse(fs.readFileSync(fallbackPath, 'utf8'));
+            console.log('[DATA] Loaded from file');
+          } catch (e) {
+            console.error('[DATA] File parse error:', e);
+          }
         }
+      
+        if (!currentData) {
+          try {
+            currentData = await kv.get('liquid_data');
+            if (currentData) {
+              console.log('[DATA] Loaded from KV');
+            }
+          } catch (e) {
+            console.error('[DATA] KV error:', e);
+          }
+        }
+      
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('Content-Type', 'application/json');
+      
         return res.status(200).json(currentData || { error: 'No data available' });
-    }
+      }
 
     if (url.pathname === '/manage') {
         return await handleDataManagement(req, res);

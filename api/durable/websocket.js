@@ -2,7 +2,7 @@
 import { kv } from '@vercel/kv';
 
 export class WebSocketDurable {
-	hamburburSockets = new Map();
+	liquidSockets = new Map(); // Renamed from hamburburSockets
 	trackerSockets = new Set();
 	chatSockets = new Map();
 
@@ -10,8 +10,20 @@ export class WebSocketDurable {
 		this.env = process.env;
 	}
 
+	// Helper method to safely cleanup sockets
+	cleanupSocket(socket) {
+		try {
+			if (socket && socket.readyState !== 3) { // 3 = CLOSED
+				socket.removeAllListeners();
+				socket.terminate();
+			}
+		} catch (e) {
+			// Ignore cleanup errors
+		}
+	}
+
 	broadcastUsers() {
-		const users = Array.from(this.hamburburSockets.values()).map(
+		const users = Array.from(this.liquidSockets.values()).map(
 			user => ({
 				userId: user.userId,
 				username: user.username
@@ -20,58 +32,72 @@ export class WebSocketDurable {
 
 		const payload = JSON.stringify({ type: 'broadcastUsers', users: users });
 
-		for (const [socket, info] of this.hamburburSockets.entries()) {
+		for (const [socket, info] of this.liquidSockets.entries()) {
 			try {
-				if (socket.readyState === 1) {
+				if (socket && socket.readyState === 1) { // 1 = OPEN
 					socket.send(payload);
+				} else {
+					this.liquidSockets.delete(socket);
+					this.cleanupSocket(socket);
 				}
 			} catch (e) {
-				this.hamburburSockets.delete(socket);
+				this.liquidSockets.delete(socket);
+				this.cleanupSocket(socket);
 			}
 		}
 	}
 
 	async handleMessage(ws, message) {
-		const data = JSON.parse(message.toString());
-		const type = data.type;
+		try {
+			const data = JSON.parse(message.toString());
+			const type = data.type;
 
-		switch (type) {
-			case 'ping':
-				ws.send(JSON.stringify({ type: 'pong', timeStamp: Date.now() }));
-				break;
-
-			case 'telemetryUpload':
-				const telemetryPayload = {
-					embeds: [
-						{
-							title: `Code uploaded to telemetry by ${data.username}`,
-							fields: [
-								{ name: 'Code', value: data.roomCode || 'N/A' },
-								{ name: 'Players In Code', value: String(data.playersInCode || 'N/A') },
-								{ name: 'GameMode String', value: data.gameModeString || 'N/A' }
-							]
-						}
-					]
-				};
-
-				await fetch(this.env.GC_DEV_WEBHOOK, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(telemetryPayload)
-				});
-				break;
-
-			case 'broadcastData':
-				for (const socket of this.hamburburSockets.keys()) {
-					try {
-						if (socket.readyState === 1) {
-							socket.send(JSON.stringify(data));
-						}
-					} catch (e) {
-						this.hamburburSockets.delete(socket);
+			switch (type) {
+				case 'ping':
+					if (ws && ws.readyState === 1) {
+						ws.send(JSON.stringify({ type: 'pong', timeStamp: Date.now() }));
 					}
-				}
-				break;
+					break;
+
+				case 'telemetryUpload':
+					const telemetryPayload = {
+						embeds: [
+							{
+								title: `Code uploaded to telemetry by ${data.username}`,
+								fields: [
+									{ name: 'Code', value: data.roomCode || 'N/A' },
+									{ name: 'Players In Code', value: String(data.playersInCode || 'N/A') },
+									{ name: 'GameMode String', value: data.gameModeString || 'N/A' }
+								]
+							}
+						]
+					};
+
+					await fetch(this.env.GC_DEV_WEBHOOK, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(telemetryPayload)
+					});
+					break;
+
+				case 'broadcastData':
+					for (const socket of this.liquidSockets.keys()) {
+						try {
+							if (socket && socket.readyState === 1) {
+								socket.send(JSON.stringify(data));
+							} else {
+								this.liquidSockets.delete(socket);
+								this.cleanupSocket(socket);
+							}
+						} catch (e) {
+							this.liquidSockets.delete(socket);
+							this.cleanupSocket(socket);
+						}
+					}
+					break;
+			}
+		} catch (e) {
+			console.error('Error handling message:', e);
 		}
 	}
 
@@ -88,12 +114,17 @@ export class WebSocketDurable {
 				return;
 			}
 
-			this.hamburburSockets.set(ws, { userId, username });
+			this.liquidSockets.set(ws, { userId, username });
 
 			ws.on('message', (msg) => this.handleMessage(ws, msg));
 			ws.on('close', () => {
-				this.hamburburSockets.delete(ws);
+				this.liquidSockets.delete(ws);
 				this.broadcastUsers();
+			});
+			ws.on('error', (err) => {
+				console.error('WebSocket error:', err);
+				this.liquidSockets.delete(ws);
+				this.cleanupSocket(ws);
 			});
 
 			this.broadcastUsers();
@@ -113,13 +144,17 @@ export class WebSocketDurable {
 
 			const sendToAll = (payloadObj) => {
 				const payload = JSON.stringify(payloadObj);
-				for (const socket of this.chatSockets.keys()) {
+				for (const [socket, info] of this.chatSockets.entries()) {
 					try {
-						if (socket.readyState === 1) {
+						if (socket && socket.readyState === 1) {
 							socket.send(payload);
+						} else {
+							this.chatSockets.delete(socket);
+							this.cleanupSocket(socket);
 						}
 					} catch (e) {
 						this.chatSockets.delete(socket);
+						this.cleanupSocket(socket);
 					}
 				}
 			};
@@ -130,13 +165,18 @@ export class WebSocketDurable {
 					count: this.chatSockets.size,
 					ts: Date.now()
 				});
-				for (const socket of this.chatSockets.keys()) {
+				
+				for (const [socket, info] of this.chatSockets.entries()) {
 					try {
-						if (socket.readyState === 1) {
+						if (socket && socket.readyState === 1) {
 							socket.send(payload);
+						} else {
+							this.chatSockets.delete(socket);
+							this.cleanupSocket(socket);
 						}
 					} catch (e) {
 						this.chatSockets.delete(socket);
+						this.cleanupSocket(socket);
 					}
 				}
 			};
@@ -147,17 +187,21 @@ export class WebSocketDurable {
 				for (const raw of history) {
 					try {
 						const msg = JSON.parse(raw);
-						ws.send(JSON.stringify(msg));
+						if (ws && ws.readyState === 1) {
+							ws.send(JSON.stringify(msg));
+						}
 					} catch (_) {}
 				}
 			} catch (_) {}
 
 			// send welcome to this client with assigned name
-			ws.send(JSON.stringify({
-				type: 'chatWelcome',
-				username,
-				ts: Date.now()
-			}));
+			if (ws && ws.readyState === 1) {
+				ws.send(JSON.stringify({
+					type: 'chatWelcome',
+					username,
+					ts: Date.now()
+				}));
+			}
 
 			// announce join to others
 			sendToAll({
@@ -184,8 +228,7 @@ export class WebSocketDurable {
 				// detect @mentions against current usernames
 				const mentions = [];
 				const lowerText = text.toLowerCase();
-				for (const socket of this.chatSockets.keys()) {
-					const inf = this.chatSockets.get(socket);
+				for (const [socket, inf] of this.chatSockets.entries()) {
 					if (!inf || !inf.username) continue;
 					const uname = inf.username;
 					const needle = '@' + uname.toLowerCase();
@@ -199,7 +242,8 @@ export class WebSocketDurable {
 					from: fromInfo.username,
 					text,
 					ts: Date.now(),
-					mentions
+					mentions,
+					id: `${Date.now()}-${Math.random().toString(36).substring(2, 10)}` // Add unique ID
 				};
 
 				sendToAll(record);
@@ -207,8 +251,8 @@ export class WebSocketDurable {
 				// persist to KV for ~24h
 				try {
 					await kv.rpush('chat:history', JSON.stringify(record));
-					await kv.ltrim('chat:history', -200, -1);
-					await kv.expire('chat:history', 60 * 60 * 24);
+					await kv.ltrim('chat:history', -1000, -1); // Keep last 1000 messages
+					await kv.expire('chat:history', 60 * 60 * 24 * 7); // 7 days
 				} catch (_) {}
 			});
 
@@ -221,6 +265,12 @@ export class WebSocketDurable {
 				});
 				broadcastPresence();
 			});
+
+			ws.on('error', (err) => {
+				console.error('Chat socket error:', err);
+				this.chatSockets.delete(ws);
+				this.cleanupSocket(ws);
+			});
 		}
 
 		if (url.pathname === '/tracker') {
@@ -228,6 +278,12 @@ export class WebSocketDurable {
 
 			ws.on('close', () => {
 				this.trackerSockets.delete(ws);
+			});
+
+			ws.on('error', (err) => {
+				console.error('Tracker socket error:', err);
+				this.trackerSockets.delete(ws);
+				this.cleanupSocket(ws);
 			});
 
 			const trackers = this.trackerSockets.size;
