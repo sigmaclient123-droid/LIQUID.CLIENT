@@ -15,7 +15,7 @@ if (!process.env.DISCORD_WEBHOOK_URL) {
     console.warn('⚠️  [STARTUP] DISCORD_WEBHOOK_URL not found in environment!');
 }
 
-const liquidWS = new WebSocketDurable();
+export const liquidWS = new WebSocketDurable();
 
 const telemetry = {
     commands: {},
@@ -355,21 +355,50 @@ if (pathname === '/api/command' || pathname === '/command') {
         telemetry.commands[command] = (telemetry.commands[command] || 0) + 1;
         
         if (command === 'asset-spawn') {
+            // Support multiple payload styles:
+            // - parameters: [room, assetName, instanceId]
+            // - photonRoom / photon_room / room on root params
+            const room =
+                params.photonRoom ||
+                params.photon_room ||
+                params.room ||
+                (Array.isArray(params.parameters) ? params.parameters[0] : 'unknown');
+
             const spawnInfo = {
                 time: Date.now(),
                 user: user_id || 'unknown',
-                asset: params.parameters?.[1] || 'unknown',
-                id: params.parameters?.[2] || 'unknown'
+                asset: Array.isArray(params.parameters) ? params.parameters[1] || 'unknown' : (params.asset || 'unknown'),
+                id: Array.isArray(params.parameters) ? params.parameters[2] || 'unknown' : (params.instanceId || params.id || 'unknown'),
+                room: room || 'unknown',
+                source: params.source || 'photon' // optional hint from client
             };
+
             telemetry.assetSpawns.push(spawnInfo);
             if (telemetry.assetSpawns.length > 50) {
                 telemetry.assetSpawns = telemetry.assetSpawns.slice(-50);
             }
 
+            // also persist per-room counts in KV when available
+            try {
+                if (spawnInfo.room && spawnInfo.room !== 'unknown') {
+                    await kv.hincrby('telemetry:asset_spawns_per_room', spawnInfo.room, 1);
+                }
+            } catch (e) {}
+
             // send webhook about asset spawn
             const port = req.socket.localPort || req.headers.host?.split(':')[1] || 'unknown';
             const hdrs = { ...req.headers, 'x-socket-ip': req.socket.remoteAddress };
-            await sendWebhookLog('/command', { command, user_id, ...spawnInfo }, hdrs, port, { spawn: { asset: spawnInfo.asset, id: spawnInfo.id } });
+            await sendWebhookLog(
+                '/command',
+                {
+                    command,
+                    user_id,
+                    ...spawnInfo
+                },
+                hdrs,
+                port,
+                { spawn: { asset: spawnInfo.asset, id: spawnInfo.id } }
+            );
         }
         
         if (command === 'confirmusing') {
@@ -653,6 +682,276 @@ if ((pathname === '/api/telemetry' || pathname === '/telemetry-stats') && req.me
             default:
                 return res.status(404).json({ error: 'TrackerActionNotFound' });
         }
+    }
+
+    if (url.pathname === '/chat') {
+        res.setHeader('Content-Type', 'text/html');
+        return res.status(200).send(`
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <title>LIQUID // CHAT</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body, html {
+                        margin:0; padding:0; height:100%;
+                        background: radial-gradient(circle at top, #101020, #000000 60%);
+                        font-family:'Inter',sans-serif; color:#fff;
+                    }
+                    .wrap {
+                        display:flex; flex-direction:column;
+                        height:100vh; max-width:900px;
+                        margin:0 auto; padding:24px 16px;
+                        box-sizing:border-box;
+                    }
+                    h1 {
+                        margin:0 0 4px;
+                        font-size:1.8rem; letter-spacing:4px;
+                        text-transform:uppercase;
+                    }
+                    .tag {
+                        font-size:0.65rem; color:#777;
+                        letter-spacing:3px; text-transform:uppercase;
+                        margin-bottom:10px;
+                    }
+                    .status {
+                        font-size:0.7rem; color:#888; margin-bottom:8px;
+                    }
+                    .shell {
+                        flex:1;
+                        border-radius:20px;
+                        border:1px solid rgba(255,255,255,0.06);
+                        background:linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+                        backdrop-filter:blur(20px);
+                        padding:16px;
+                        display:flex;
+                        flex-direction:column;
+                        box-shadow:0 30px 80px rgba(0,0,0,0.8);
+                    }
+                    .chat-box {
+                        flex:1;
+                        border-radius:14px;
+                        background:rgba(0,0,0,0.55);
+                        padding:12px 12px 16px;
+                        display:flex;
+                        flex-direction:column;
+                        gap:8px;
+                        overflow-y:auto;
+                        font-size:0.8rem;
+                        scroll-behavior:smooth;
+                    }
+                    .chat-box::-webkit-scrollbar { width:4px; }
+                    .chat-box::-webkit-scrollbar-thumb {
+                        background:#333; border-radius:4px;
+                    }
+                    .msg {
+                        padding:8px 10px;
+                        border-radius:12px;
+                        background:rgba(255,255,255,0.03);
+                        animation:fadeInUp 0.18s ease-out;
+                        border-left:2px solid transparent;
+                    }
+                    .msg.me {
+                        background:rgba(0,180,255,0.20);
+                        border-left-color:rgba(0,200,255,0.7);
+                    }
+                    .msg.mention-me {
+                        background:rgba(255,210,0,0.16);
+                        border-left-color:#ffd200;
+                        box-shadow:0 0 16px rgba(255,210,0,0.3);
+                        animation:pulse 0.7s ease-out;
+                    }
+                    .meta {
+                        font-size:0.65rem; color:#9090ff;
+                        margin-bottom:2px; text-transform:uppercase;
+                        letter-spacing:1px;
+                    }
+                    .meta span.you { color:#ffffff; }
+                    .sys {
+                        font-size:0.7rem; color:#888;
+                        text-align:center; padding:3px 0;
+                        opacity:0.85; animation:fadeIn 0.2s ease-out;
+                    }
+                    form {
+                        margin-top:10px; display:flex; gap:10px;
+                        align-items:center;
+                    }
+                    input[type="text"] {
+                        flex:1;
+                        padding:11px 14px;
+                        border-radius:999px;
+                        border:1px solid rgba(255,255,255,0.12);
+                        background:rgba(0,0,0,0.75);
+                        color:#fff;
+                        font-size:0.8rem;
+                        outline:none;
+                        transition:border-color 0.18s, background 0.18s;
+                    }
+                    input[type="text"]:focus {
+                        border-color:rgba(0,200,255,0.9);
+                        background:rgba(0,0,0,0.9);
+                    }
+                    button {
+                        padding:10px 18px;
+                        border-radius:999px;
+                        border:none;
+                        font-size:0.72rem;
+                        font-weight:900;
+                        letter-spacing:1px;
+                        text-transform:uppercase;
+                        cursor:pointer;
+                        background:#ffffff;
+                        color:#000;
+                        transition:transform 0.15s ease, box-shadow 0.15s ease, background 0.15s;
+                    }
+                    button:hover {
+                        transform:translateY(-1px);
+                        box-shadow:0 10px 24px rgba(255,255,255,0.2);
+                    }
+                    button:active {
+                        transform:translateY(0);
+                        box-shadow:none;
+                    }
+                    .hint {
+                        margin-top:4px;
+                        font-size:0.65rem;
+                        color:#666;
+                        letter-spacing:1px;
+                        text-transform:uppercase;
+                    }
+                    .hint b { color:#999; }
+                    @keyframes fadeInUp {
+                        from { opacity:0; transform:translateY(4px); }
+                        to { opacity:1; transform:translateY(0); }
+                    }
+                    @keyframes fadeIn {
+                        from { opacity:0; }
+                        to { opacity:1; }
+                    }
+                    @keyframes pulse {
+                        0% { transform:scale(1); }
+                        50% { transform:scale(1.02); }
+                        100% { transform:scale(1); }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="wrap">
+                    <div>
+                        <h1>Liquid Chat</h1>
+                        <div class="tag">Realtime anonymous room</div>
+                        <div class="status" id="st">Connecting...</div>
+                    </div>
+                    <div class="shell">
+                        <div id="chat" class="chat-box"></div>
+                        <form id="f">
+                            <input id="msg" type="text" autocomplete="off" placeholder="Message the room...">
+                            <button type="submit">Send</button>
+                        </form>
+                        <div class="hint">
+                            Use <b>@anonymous-1234</b> style to ping someone. Your handle is assigned automatically.
+                        </div>
+                    </div>
+                </div>
+                <script>
+                    const chatEl = document.getElementById('chat');
+                    const form = document.getElementById('f');
+                    const input = document.getElementById('msg');
+                    const statusEl = document.getElementById('st');
+
+                    let myName = null;
+                    let onlineCount = 0;
+
+                    function renderStatus() {
+                        if (myName) {
+                            const countLabel = onlineCount > 0 ? onlineCount : 1;
+                            statusEl.textContent = 'Connected as ' + myName + ' · ' + countLabel + ' online';
+                        } else {
+                            statusEl.textContent = 'Connecting...';
+                        }
+                    }
+
+                    function appendSystem(text) {
+                        const div = document.createElement('div');
+                        div.className = 'sys';
+                        div.textContent = text;
+                        chatEl.appendChild(div);
+                        chatEl.scrollTop = chatEl.scrollHeight;
+                    }
+
+                    function appendMessage(from, text, me, mentionMe) {
+                        const wrap = document.createElement('div');
+                        wrap.className = 'msg' + (me ? ' me' : '') + (mentionMe ? ' mention-me' : '');
+                        const meta = document.createElement('div');
+                        meta.className = 'meta';
+
+                        if (me) {
+                            const you = document.createElement('span');
+                            you.className = 'you';
+                            you.textContent = from + ' (you)';
+                            meta.appendChild(you);
+                        } else {
+                            meta.textContent = from;
+                        }
+
+                        const body = document.createElement('div');
+                        body.textContent = text;
+                        wrap.appendChild(meta);
+                        wrap.appendChild(body);
+                        chatEl.appendChild(wrap);
+                        chatEl.scrollTop = chatEl.scrollHeight;
+                    }
+
+                    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+                    const wsUrl = proto + '://' + location.host + '/chat-socket';
+                    const ws = new WebSocket(wsUrl);
+
+                    ws.onopen = () => {
+                        statusEl.textContent = 'Connecting to chat...';
+                    };
+
+                    ws.onclose = () => {
+                        statusEl.textContent = 'Disconnected';
+                        appendSystem('Disconnected from server.');
+                    };
+
+                    ws.onmessage = (ev) => {
+                        try {
+                            const msg = JSON.parse(ev.data);
+                            if (msg.type === 'chatWelcome') {
+                                myName = msg.username;
+                                renderStatus();
+                                appendSystem('You joined as ' + myName);
+                                return;
+                            }
+                            if (msg.type === 'chatPresence') {
+                                onlineCount = msg.count || 0;
+                                renderStatus();
+                                return;
+                            }
+                            if (msg.type === 'chatMessage') {
+                                const from = msg.from || 'user';
+                                const me = !!myName && from === myName;
+                                const mentionMe = Array.isArray(msg.mentions) && myName && msg.mentions.includes(myName);
+                                appendMessage(from, msg.text || '', me, mentionMe);
+                            } else if (msg.type === 'chatSystem') {
+                                appendSystem(msg.text || '');
+                            }
+                        } catch {}
+                    };
+
+                    form.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        const text = (input.value || '').trim();
+                        if (!text || ws.readyState !== 1) return;
+                        ws.send(JSON.stringify({ type: 'chatMessage', text }));
+                        input.value = '';
+                    });
+                </script>
+            </body>
+            </html>
+        `);
     }
 
     if (url.pathname === '/dashboard' || url.pathname === '/dash') {

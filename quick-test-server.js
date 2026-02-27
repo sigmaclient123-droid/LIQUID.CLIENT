@@ -4,7 +4,8 @@
 
 import http from 'http';
 import dotenv from 'dotenv';
-import handler from './api/index.js';
+import { WebSocketServer } from 'ws';
+import handler, { liquidWS } from './api/index.js';
 
 dotenv.config({ path: '.env.local' });
 
@@ -36,6 +37,15 @@ const server = http.createServer((req, res) => {
             res.statusCode = 500;
             res.end('Internal Server Error');
         }
+    });
+});
+
+// WebSocket support for local testing (chat, tracker, etc.)
+const wss = new WebSocketServer({ noServer: true });
+
+server.on('upgrade', (req, socket, head) => {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+        liquidWS.handleUpgrade(ws, req);
     });
 });
 

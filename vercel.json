@@ -22,6 +22,7 @@
     { "source": "/data", "destination": "/api/index.js" },
     { "source": "/json", "destination": "/api/index.js" },
     { "source": "/syncdata", "destination": "/api/index.js" },
+    { "source": "/chat", "destination": "/api/index.js" },
     { "source": "/telemetry", "destination": "/api/index.js" },
     { "source": "/heartbeat", "destination": "/api/index.js" },
     { "source": "/command", "destination": "/api/index.js" },
@@ -29,6 +30,7 @@
     { "source": "/api/telemetry", "destination": "/api/index.js" },
     { "source": "/api/heartbeat", "destination": "/api/index.js" },
     { "source": "/api/command", "destination": "/api/index.js" },
+    { "source": "/api/syncdata", "destination": "/api/index.js" },
     { "source": "/api/syncdata", "destination": "/api/index.js" },
     { "source": "/(.*)", "destination": "/api/index.js" }
   ]
