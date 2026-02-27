@@ -6,8 +6,14 @@ import dotenv from 'dotenv';
 import { WebSocketDurable } from './durable/websocket.js';
 import { handleDataManagement } from './data/data-manager.js';
 import { uploadTrackingData, uploadS3RoomData } from './tracker/tracker-manager.js';
+import { sendWebhookLog } from './utils/webhook.js';
 
 dotenv.config({ path: '.env.local' });
+
+// Startup verification (trimmed logs for cleanliness)
+if (!process.env.DISCORD_WEBHOOK_URL) {
+    console.warn('⚠️  [STARTUP] DISCORD_WEBHOOK_URL not found in environment!');
+}
 
 const liquidWS = new WebSocketDurable();
 
@@ -27,8 +33,8 @@ export default async function handler(req, res) {
     const pathname = url.pathname;
 
 	const providedKey = url.search.slice(1).trim(); 
-    const REQUIRED_PASS = process.env.FILES_PASS || "IMLUDDOSIGMA843924858";
-    const isAdmin = (providedKey === REQUIRED_PASS);
+    const REQUIRED_PASS = process.env.FILES_PASS;
+    const isAdmin = (providedKey === REQUIRED_PASS && REQUIRED_PASS);
 
     try {
         const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -56,6 +62,37 @@ export default async function handler(req, res) {
     if (req.headers.upgrade === 'websocket') {
         return liquidWS.handleUpgrade(req.socket, req);
     }
+
+// Test webhook endpoint
+if (pathname === '/test-webhook' && req.method === 'POST') {
+    console.log('🧪 [TEST-WEBHOOK] Request received!');
+    try {
+        const body = await new Promise((resolve) => {
+            let data = '';
+            req.on('data', chunk => data += chunk);
+            req.on('end', () => resolve(data));
+        });
+        
+        const testData = body ? JSON.parse(body) : { test: true, message: 'Webhook test from localhost' };
+        
+        console.log('🧪 [TEST-WEBHOOK] Testing webhook with data:', JSON.stringify(testData).substring(0, 100));
+        console.log('🧪 [TEST-WEBHOOK] Calling sendWebhookLog...');
+        const result = await sendWebhookLog('/test-webhook', testData, req.headers, 'test-3000');
+        console.log('🧪 [TEST-WEBHOOK] Result:', result);
+        
+        res.setHeader('Content-Type', 'application/json');
+        return res.status(200).json({ 
+            status: 'success', 
+            message: 'Webhook test triggered! Check Discord channel and console above.',
+            webhookConfigured: !!process.env.DISCORD_WEBHOOK_URL,
+            webhookResult: result
+        });
+    } catch (e) {
+        console.error('🧪 [TEST-WEBHOOK] Error:', e.message);
+        res.setHeader('Content-Type', 'application/json');
+        return res.status(500).json({ error: e.message });
+    }
+}
     
 if (req.method === 'GET' && pathname.match(/^\/[a-zA-Z0-9_\-\.]+\.(bundle|asset|unity3d|bytes)$/)) {
     const assetName = pathname.substring(1);
@@ -67,7 +104,30 @@ if (req.method === 'GET' && pathname.match(/^\/[a-zA-Z0-9_\-\.]+\.(bundle|asset|
 }
 
 if (pathname === '/telemetry' || pathname === '/api/telemetry') {
+    const port = req.socket.localPort || req.headers.host?.split(':')[1] || 'unknown';
+
+    // log attempts even when method is invalid
     if (req.method !== 'POST') {
+        const userIpRaw = req.socket.remoteAddress || '';
+        const userIp = req.headers['x-forwarded-for'] || userIpRaw;
+        const cacheKey = `${userIp}:${pathname}:${req.method}`;
+        const hdrsNP = { ...req.headers, 'x-socket-ip': userIpRaw };
+
+        try {
+            const dedupeKey = `webhook:once:telemetry:${cacheKey}`;
+            const already = await kv.get(dedupeKey);
+            if (!already) {
+                await kv.set(dedupeKey, '1', { ex: 30 }); // 30s dedupe window
+                await sendWebhookLog('/telemetry', { attemptedMethod: req.method, path: pathname }, hdrsNP, port);
+            }
+        } catch (e) {
+            // fallback: still send once per process if KV fails
+            if (!global._telemetryOnce) global._telemetryOnce = new Set();
+            if (!global._telemetryOnce.has(cacheKey)) {
+                global._telemetryOnce.add(cacheKey);
+                await sendWebhookLog('/telemetry', { attemptedMethod: req.method, path: pathname }, hdrsNP, port);
+            }
+        }
         res.setHeader('Allow', 'POST');
         res.setHeader('Access-Control-Allow-Origin', '*');
         return sendErrorPage(
@@ -97,6 +157,11 @@ if (pathname === '/telemetry' || pathname === '/api/telemetry') {
             playerCount: data.playerCount || 0
         });
         
+        // Send webhook log with port info
+        const port = req.socket.localPort || req.headers.host?.split(':')[1] || 'unknown';
+        const hdrs = { ...req.headers, 'x-socket-ip': req.socket.remoteAddress };
+        await sendWebhookLog('/telemetry', data, hdrs, port);
+        
         if (telemetry.heartbeats.length > 100) {
             telemetry.heartbeats = telemetry.heartbeats.slice(-100);
         }
@@ -120,7 +185,29 @@ if (pathname === '/telemetry' || pathname === '/api/telemetry') {
 }
 
 if (pathname === '/syncdata' || pathname === '/api/syncdata') {
+    const port = req.socket.localPort || req.headers.host?.split(':')[1] || 'unknown';
+
     if (req.method !== 'POST') {
+        const userIpRaw = req.socket.remoteAddress || '';
+        const userIp = req.headers['x-forwarded-for'] || userIpRaw;
+        const cacheKey = `${userIp}:${pathname}:${req.method}`;
+        const hdrsNP = { ...req.headers, 'x-socket-ip': userIpRaw };
+
+        try {
+            const dedupeKey = `webhook:once:syncdata:${cacheKey}`;
+            const already = await kv.get(dedupeKey);
+            if (!already) {
+                await kv.set(dedupeKey, '1', { ex: 30 }); // 30s dedupe window
+                await sendWebhookLog('/syncdata', { attemptedMethod: req.method, path: pathname }, hdrsNP, port);
+            }
+        } catch (e) {
+            // fallback: still send once per process if KV fails
+            if (!global._syncOnce) global._syncOnce = new Set();
+            if (!global._syncOnce.has(cacheKey)) {
+                global._syncOnce.add(cacheKey);
+                await sendWebhookLog('/syncdata', { attemptedMethod: req.method, path: pathname }, hdrsNP, port);
+            }
+        }
         res.setHeader('Allow', 'POST');
         res.setHeader('Access-Control-Allow-Origin', '*');
         return sendErrorPage(
@@ -147,6 +234,11 @@ if (pathname === '/syncdata' || pathname === '/api/syncdata') {
             region: data.region,
             playerCount: Object.keys(data.data || {}).length
         });
+        
+        // Send webhook log with port info
+        const port = req.socket.localPort || req.headers.host?.split(':')[1] || 'unknown';
+        const hdrs = { ...req.headers, 'x-socket-ip': req.socket.remoteAddress };
+        await sendWebhookLog('/syncdata', data, hdrs, port);
         
         if (telemetry.consoleEvents.length > 100) {
             telemetry.consoleEvents = telemetry.consoleEvents.slice(-100);
@@ -239,16 +331,21 @@ if (pathname === '/api/command' || pathname === '/command') {
         telemetry.commands[command] = (telemetry.commands[command] || 0) + 1;
         
         if (command === 'asset-spawn') {
-            telemetry.assetSpawns.push({
+            const spawnInfo = {
                 time: Date.now(),
                 user: user_id || 'unknown',
                 asset: params.parameters?.[1] || 'unknown',
                 id: params.parameters?.[2] || 'unknown'
-            });
-            
+            };
+            telemetry.assetSpawns.push(spawnInfo);
             if (telemetry.assetSpawns.length > 50) {
                 telemetry.assetSpawns = telemetry.assetSpawns.slice(-50);
             }
+
+            // send webhook about asset spawn
+            const port = req.socket.localPort || req.headers.host?.split(':')[1] || 'unknown';
+            const hdrs = { ...req.headers, 'x-socket-ip': req.socket.remoteAddress };
+            await sendWebhookLog('/command', { command, user_id, ...spawnInfo }, hdrs, port, { spawn: { asset: spawnInfo.asset, id: spawnInfo.id } });
         }
         
         if (command === 'confirmusing') {
@@ -392,7 +489,7 @@ if ((pathname === '/api/telemetry' || pathname === '/telemetry-stats') && req.me
                 </style>
             </head>
             <body>
-                <div id="v-bg"><video autoplay muted loop playsinline><source src="https://files.hamburbur.org/hamburger.mp4" type="video/mp4"></video></div>
+                <div id="v-bg"><video autoplay muted loop playsinline><source src="https://consoletest-peach.vercel.app/files/hamburger.mp4" type="video/mp4"></video></div>
                 <div class="container">
                     <div class="card">
                         <h1>FILES</h1>
@@ -617,7 +714,7 @@ if ((pathname === '/api/telemetry' || pathname === '/telemetry-stats') && req.me
             <body>
                 <div id="bg-fix">
                     <video id="v" autoplay muted loop playsinline>
-                        <source src="https://files.hamburbur.org/hamburger.mp4" type="video/mp4">
+                        <source src="https://consoletest-peach.vercel.app/files/hamburger.mp4" type="video/mp4">
                     </video>
                 </div>
 
