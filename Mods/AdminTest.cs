@@ -113,23 +113,5 @@ namespace admintest
             }
             catch { }
         }
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
     }
 }
