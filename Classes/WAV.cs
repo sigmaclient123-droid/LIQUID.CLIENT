@@ -3,10 +3,8 @@ using System.IO;
 
 namespace liquidclient.Classes
 {
-	// Token: 0x02000045 RID: 69
 	public class WAV
 	{
-		// Token: 0x060002A4 RID: 676 RVA: 0x0001BD90 File Offset: 0x00019F90
 		public WAV(byte[] wavFile)
 		{
 			using (MemoryStream memoryStream = new MemoryStream(wavFile))
@@ -73,25 +71,14 @@ namespace liquidclient.Classes
 			}
 		}
 
-		// Token: 0x1700003A RID: 58
-		// (get) Token: 0x060002A5 RID: 677 RVA: 0x0001BFC0 File Offset: 0x0001A1C0
 		public float[] LeftChannel { get; }
 
-		// Token: 0x1700003B RID: 59
-		// (get) Token: 0x060002A6 RID: 678 RVA: 0x0001BFC8 File Offset: 0x0001A1C8
 		public float[] RightChannel { get; }
 
-		// Token: 0x1700003C RID: 60
-		// (get) Token: 0x060002A7 RID: 679 RVA: 0x0001BFD0 File Offset: 0x0001A1D0
 		public int ChannelCount { get; }
 
-		// Token: 0x1700003D RID: 61
-		// (get) Token: 0x060002A8 RID: 680 RVA: 0x0001BFD8 File Offset: 0x0001A1D8
 		public int SampleCount { get; }
 
-		// Token: 0x1700003E RID: 62
-		// (get) Token: 0x060002A9 RID: 681 RVA: 0x0001BFE0 File Offset: 0x0001A1E0
-		// (set) Token: 0x060002AA RID: 682 RVA: 0x0001BFE8 File Offset: 0x0001A1E8
 		public int Frequency { get; private set; }
 	}
 }
