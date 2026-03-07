@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using admintest;
 using GorillaNetworking;
@@ -245,7 +245,8 @@ namespace liquidclient.Menu
                 
                 //new ButtonInfo { buttonText = "Unlock VIM door", method = () => Movement.Disablesubdoor(), isTogglable = false },
                 new ButtonInfo { buttonText = "Flash Gray Screen", method = () => Movement.FlashGrayScreenSSAll(), isTogglable = true },
-                new ButtonInfo { buttonText = "Gray Screen/No gravity", enableMethod = () => Movement.GrayScreenThing(true), disableMethod  = () => Movement.GrayScreenThing(false), },
+                new ButtonInfo { buttonText = "Gray Screen/No gravity(M)", enableMethod = () => Movement.GrayScreenThing(true), disableMethod  = () => Movement.GrayScreenThing(false), },
+                new ButtonInfo { buttonText = "Guardian Self(M)", enableMethod = () => setguardianonthetarget(Photon_local_player), disableMethod = () => UnguardianSelf(), toolTip = "Makes you guardian"}
             },
 
             new ButtonInfo[] { // Sounds [12]
@@ -253,7 +254,7 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Jman sound spam", method = () => Movement.JmancurlySoundSpam() },
                 new ButtonInfo { buttonText = "Crystal sound spam", method = () => Movement.CrystalSoundSpam() },
                 new ButtonInfo { buttonText = "Squeak sound spam", method = () => Movement.SqueakSoundSpam() },
-                new ButtonInfo { buttonText = "Siren sound spam", method = () => Movement.SirenSoundSpam() },
+                //new ButtonInfo { buttonText = "Siren sound spam", method = () => Movement.SirenSoundSpam() },
             },
 
             new ButtonInfo[] { // Admin Mods [13]
