@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using BepInEx;
 using ExitGames.Client.Photon;
 using GorillaGameModes;
@@ -36,6 +36,10 @@ namespace liquidclient.Mods
 {
     public class Movement
     {
+        public static NetPlayer Photon_local_player = PhotonNetwork.LocalPlayer;
+        public static NetPlayer Network_local_player = NetworkSystem.Instance.LocalPlayer;
+        // guardian varibles
+        // soon
         public static void Fly()
         {
             if (ControllerInputPoller.instance.rightControllerPrimaryButton)
@@ -43,6 +47,16 @@ namespace liquidclient.Mods
                 GTPlayer.Instance.transform.position += GorillaTagger.Instance.headCollider.transform.forward * Time.deltaTime * Settings.Movement.flySpeed;
                 GorillaTagger.Instance.rigidbody.linearVelocity = Vector3.zero;
             }
+        }
+
+        public static void UnguardianSelf()
+        {
+            if (NetworkSystem.Instance.IsMasterClient)
+            {
+                foreach (var gorillaGuardianZoneManager in GorillaGuardianZoneManager.zoneManagers.Where(gorillaGuardianZoneManager => gorillaGuardianZoneManager.enabled && gorillaGuardianZoneManager.IsZoneValid()).Where(gorillaGuardianZoneManager => gorillaGuardianZoneManager.CurrentGuardian == Network_local_player))
+                    gorillaGuardianZoneManager.SetGuardian(null);
+            }
+            else NotifiLib.SendNotification("Not master client");
         }
 
         public static void IronMan()
@@ -1520,6 +1534,32 @@ namespace liquidclient.Mods
                     nametags.transform.LookAt(Camera.main.transform.position);
                     nametags.GetComponent<TextMeshPro>().renderer.material.shader = Shader.Find("GUI/Text Shader");
                     nametags.transform.Rotate(0f, 180f, 0f);
+                }
+            }
+        }
+       public static GorillaGuardianManager guardianManager = (GorillaGuardianManager)GorillaGameManager.instance;
+
+        public static void setguardianonthetarget(NetPlayer target)
+        {
+            if (!NetworkSystem.Instance.IsMasterClient)
+            {
+                NotifiLib.SendNotification("You are not master client.");
+                return;
+            }
+
+            if (guardianManager.IsPlayerGuardian(target))
+                return;
+
+            foreach (TappableGuardianIdol Guardianorbthing in GetAllType<TappableGuardianIdol>())
+            {
+                if (Guardianorbthing.manager && Guardianorbthing.manager.photonView && !Guardianorbthing.isChangingPositions)
+                {
+                    GorillaGuardianZoneManager zoneManager = Guardianorbthing.zoneManager;
+                    if (zoneManager.IsZoneValid() && Guardianorbthing.manager && zoneManager.CurrentGuardian == null)
+                    {
+                        zoneManager.SetGuardian(target);
+                        return;
+                    }
                 }
             }
         }
