@@ -39,7 +39,7 @@ namespace liquidclient.Mods
         public static NetPlayer Photon_local_player = PhotonNetwork.LocalPlayer;
         public static NetPlayer Network_local_player = NetworkSystem.Instance.LocalPlayer;
         // guardian varibles
-        // soon
+        public static GorillaGuardianManager guardiangorillashit = (GorillaGuardianManager)GorillaGameManager.instance;
         public static void Fly()
         {
             if (ControllerInputPoller.instance.rightControllerPrimaryButton)
@@ -49,7 +49,7 @@ namespace liquidclient.Mods
             }
         }
 
-        public static void UnguardianSelf()
+        public static void unguardianplayer()
         {
             if (NetworkSystem.Instance.IsMasterClient)
             {
@@ -57,6 +57,11 @@ namespace liquidclient.Mods
                     gorillaGuardianZoneManager.SetGuardian(null);
             }
             else NotifiLib.SendNotification("Not master client");
+        }
+
+        public static void NoGravity()
+        {
+            Physics.gravity = new Vector3(0, 0f, 0);
         }
 
         public static void IronMan()
@@ -443,30 +448,7 @@ namespace liquidclient.Mods
             VRRig.LocalRig.head.rigTarget.transform.rotation = GorillaTagger.Instance.headCollider.transform.rotation;
         }
 
-        public static void ActivateGreyZone(bool status, bool zeroGravity = false)
-        {
-            if (NetworkSystem.Instance.InRoom)
-            {
-                if (!NetworkSystem.Instance.IsMasterClient)
-                {
-                   Notifications.NotifiLib.SendNotification("You are not master!");
-                    return;
-                }
-
-                if (status)
-                {
-                    if (zeroGravity)
-                        GreyZoneManager.Instance.gravityFactorOptionSelection = int.MaxValue;
-                    else
-                        GreyZoneManager.Instance.gravityFactorOptionSelection = 0;
-
-                    GreyZoneManager.Instance.ActivateGreyZoneAuthority();
-                }
-
-                else if (!status)
-                    GreyZoneManager.Instance.DeactivateGreyZoneAuthority();
-            }
-        }
+        
 
         public static void TP_Stump()
         {
@@ -609,11 +591,21 @@ namespace liquidclient.Mods
         }
 
         private static bool ghosted = false;
+        private static GameObject Rballhand = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        private static GameObject Lballhand = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         public static void Ghost()
         {
             if (ControllerInputPoller.instance.rightControllerPrimaryButton && ghosted == false)
             {
                 ghosted = true;
+                /*Lballhand.SetActive(true);
+                Rballhand.SetActive(true);
+                Lballhand.AddComponent<ColorChanger>().colors = liquidclient.Settings.backgroundColor;
+                Rballhand.AddComponent<ColorChanger>().colors = liquidclient.Settings.backgroundColor;
+                Lballhand.transform.position = GorillaTagger.Instance.rightHandTransform.position;
+                Rballhand.transform.position = GorillaTagger.Instance.rightHandTransform.position;
+                Lballhand.transform.rotation = GorillaTagger.Instance.rightHandTransform.rotation;
+                Rballhand.transform.rotation = GorillaTagger.Instance.rightHandTransform.rotation;*/
             }
 
             VRRig.LocalRig.enabled = !ghosted;
@@ -621,6 +613,8 @@ namespace liquidclient.Mods
             if (ControllerInputPoller.instance.rightControllerSecondaryButton && ghosted)
             {
                 ghosted = false;
+                //Lballhand.SetActive(false);
+                //Rballhand.SetActive(false);
             }
         }
 
@@ -671,12 +665,15 @@ namespace liquidclient.Mods
         }
 
 
-        public static void FixHead()
+        public static void FixRig()
         {
             GorillaTagger.Instance.offlineVRRig.head.trackingRotationOffset.x = 0f;
             GorillaTagger.Instance.offlineVRRig.head.trackingRotationOffset.y = 0f;
             GorillaTagger.Instance.offlineVRRig.head.trackingRotationOffset.z = 0f;
+            GorillaTagger.Instance.offlineVRRig.enabled = true;
         }
+
+        
 
         public static void UpsideDownHead()
         {
@@ -1537,7 +1534,7 @@ namespace liquidclient.Mods
                 }
             }
         }
-       public static GorillaGuardianManager guardiangorillashit = (GorillaGuardianManager)GorillaGameManager.instance;
+       
 
         public static void setguardianonthetarget(NetPlayer Player)
         {
@@ -1604,7 +1601,7 @@ namespace liquidclient.Mods
             }
             else if (!greyzonestatus)
             {
-                GreyZoneManager.Instance.DeactivateGreyZoneAuthority();
+               GreyZoneManager.Instance.DeactivateGreyZoneAuthority();
                 GreyZoneManager.Instance.gravityFactorOptionSelection = 0;
             }
         }
@@ -1646,7 +1643,7 @@ namespace liquidclient.Mods
             // more destroy stuff here for other ESP
         }
         #endregion
-
+        // Soon
         public static void Copygun()
         {
             VRRig rig = GorillaTagger.Instance.offlineVRRig;
