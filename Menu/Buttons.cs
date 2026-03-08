@@ -166,7 +166,7 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "rockets", method = () => Movement.Rocket() },
                 new ButtonInfo { buttonText = "trigger fly", method = () => Movement.triggerFly() },
                 new ButtonInfo { buttonText = "fast trigger fly", method = () => Movement.fasttriggerFly() },
-                new ButtonInfo { buttonText = "invs monke", method = () => Movement.Invismonk() },
+                //new ButtonInfo { buttonText = "invs monke", method = () => Movement.Invismonk() },
                 
                 new ButtonInfo { buttonText = "Bird Fly", method = Movement.BirdFly, toolTip = "Makes you fly like a bird when you flap your wings."},
                 new ButtonInfo { buttonText = "Iron Monke", method = () => IronMan(), isTogglable = true },
@@ -338,3 +338,4 @@ namespace liquidclient.Menu
         };
     }
 }
+
