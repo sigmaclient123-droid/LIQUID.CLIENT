@@ -220,17 +220,19 @@ namespace liquidclient.Menu
 
             new ButtonInfo[] { // Fun Mods [10]
                 //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
-                new ButtonInfo { buttonText = "Spaz Head", enableMethod = () => Movement.SpazHead(), disableMethod = Movement.FixHead},
+                new ButtonInfo { buttonText = "Fix Rig", method = () => Movement.FixRig()},
+                new ButtonInfo { buttonText = "Spaz Head", method = () => Movement.SpazHead()},
                 new ButtonInfo { buttonText = "Bounce", method = () => Movement.Bouncy(), disableMethod = Movement.ResetBouncy },
                 new ButtonInfo { buttonText = "Platfom Spam", method = () => Movement.PlatformSpam() },
-                new ButtonInfo { buttonText = "Upsidedown Head", method = () => Movement.upsidedownhead(), disableMethod = Movement.FixHead },
-                new ButtonInfo { buttonText = "Broken Neck", method = () => Movement.BrokenNeck(), disableMethod = Movement.FixHead },
+                new ButtonInfo { buttonText = "Upsidedown Head", method = () => Movement.upsidedownhead(), disableMethod = Movement.FixRig },
+                new ButtonInfo { buttonText = "Broken Neck", method = () => Movement.BrokenNeck(), disableMethod = Movement.FixRig },
                 new ButtonInfo { buttonText = "Rainbow Bracelet", enableMethod = () => Movement.RainbowBracelet(), disableMethod = () => Movement.disableRainbowBracelet() },
                 //new ButtonInfo { buttonText = "Builder watch(SS?)", method = () => Movement.Builderwatch() },
                 new ButtonInfo { buttonText = "Set Quest Score To 100k", method = () => Movement.addqueststuff(100000), disableMethod = () => Mods.Movement.Resetqueststuff() },
                 //new ButtonInfo { buttonText = "spawn hoverbord", method = () => Movement.SSHoverboardSpawn() },
                 new ButtonInfo { buttonText = "Spawn Hoverboard", method = Movement.SpawnHowerdBoard, disableMethod = Movement.DisableHoverboard, toolTip = "Gives you the hoverboard no matter where you are."},
                // new ButtonInfo { buttonText = "Copy Gun", method = () => Movement.Copygun(), toolTip = "Lock on to a player to copy them!"}
+               new ButtonInfo { buttonText = "Zero Gravity", method = () => Movement.NoGravity()},
             },
 
             new ButtonInfo[] { // OP Mods [11]
@@ -238,15 +240,16 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Ghost Money", method = () => Movement.AddCurrencySelf() },
                 //new ButtonInfo { buttonText = "Stutter all", method = () => Movement.stutterall() },
                 //new ButtonInfo { buttonText = "Lag Server", method =() => Movement.FreezeServer(1f, 11), toolTip = "Lags the room." },
-                new ButtonInfo { buttonText = "Freeze Server", enableMethod =() => SerializePatch.OverrideSerialization = () => false, method =() => Movement.FreezeServer(), disableMethod =() => SerializePatch.OverrideSerialization = null, toolTip = "Freezes the room creds to ii for inspiration." },
+                //new ButtonInfo { buttonText = "Freeze Server", enableMethod =() => SerializePatch.OverrideSerialization = () => false, method =() => Movement.FreezeServer(), disableMethod =() => SerializePatch.OverrideSerialization = null, toolTip = "Freezes the room creds to ii for inspiration." },
                 //new ButtonInfo { buttonText = "Crash Server", enableMethod =() => SerializePatch.OverrideSerialization = () => false, method =() => Movement.FreezeServer(0.1f, 40), disableMethod =() => SerializePatch.OverrideSerialization = null, toolTip = "Crashes the room." },
                 //new ButtonInfo { buttonText = "Kick Master Client", enableMethod = () => Movement.kickCoroutine = CoroutineManager.instance.StartCoroutine(Movement.KickMasterClient()), method =() => { if (Movement.kickCoroutine == null) Toggle("Kick Master Client"); }, disableMethod =() => { SerializePatch.OverrideSerialization = null; Movement.kickCoroutine = null; }, toolTip = "Kicks the master client from the room."},
                 //new ButtonInfo { buttonText = "Kick All", enableMethod = () => Movement.kickCoroutine = CoroutineManager.instance.StartCoroutine(Movement.KickAll()), method =() => { if (Movement.kickCoroutine == null) Toggle("Kick All"); }, disableMethod =() => { SerializePatch.OverrideSerialization = null; Movement.kickCoroutine = null; }, toolTip = "Kicks everyone above you from the room."},
                 
                 //new ButtonInfo { buttonText = "Unlock VIM door", method = () => Movement.Disablesubdoor(), isTogglable = false },
                 new ButtonInfo { buttonText = "Flash Gray Screen", method = () => Movement.FlashGrayScreenSSAll(), isTogglable = true },
-                new ButtonInfo { buttonText = "Gray Screen/No gravity(M)", enableMethod = () => Movement.GrayScreenThing(true), disableMethod  = () => Movement.GrayScreenThing(false), },
-                new ButtonInfo { buttonText = "Guardian Self(M)", enableMethod = () => setguardianonthetarget(Photon_local_player), disableMethod = () => UnguardianSelf(), toolTip = "Makes you guardian"}
+                new ButtonInfo { buttonText = "Gray Screen/No gravity(SS)(M)", enableMethod = () => Movement.GrayScreenThing(true), disableMethod  = () => Movement.GrayScreenThing(false), },
+                new ButtonInfo { buttonText = "Guardian Self(SS)(M)", method = () => setguardianonthetarget(Photon_local_player), isTogglable = false, toolTip = "Makes you guardian"},
+                new ButtonInfo { buttonText = "UnGuardian Self(SS)(M)", method = () => unguardianplayer(), isTogglable = false, toolTip = "Makes you not guardian"}
             },
 
             new ButtonInfo[] { // Sounds [12]
@@ -338,4 +341,3 @@ namespace liquidclient.Menu
         };
     }
 }
-
