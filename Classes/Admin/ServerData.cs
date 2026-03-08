@@ -21,7 +21,7 @@ namespace Console
     {
         public static bool ServerDataEnabled = true;
         public static bool DisableTelemetry = true;
-        public static string ServerEndpoint = "No";
+        public static string ServerEndpoint = "Removed";
         public static readonly string ServerDataEndpoint = $"{ServerEndpoint}/serverdata";
         public static string LatestMenuVersion = "0.0.0";
         public static string DiscordInvite = "";
@@ -562,4 +562,5 @@ namespace Console
             yield return request.SendWebRequest();
         }
     }
+
 }
