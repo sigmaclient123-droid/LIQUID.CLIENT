@@ -232,7 +232,7 @@ namespace liquidclient.Menu
                 //new ButtonInfo { buttonText = "spawn hoverbord", method = () => Movement.SSHoverboardSpawn() },
                 new ButtonInfo { buttonText = "Spawn Hoverboard", method = Movement.SpawnHowerdBoard, disableMethod = Movement.DisableHoverboard, toolTip = "Gives you the hoverboard no matter where you are."},
                // new ButtonInfo { buttonText = "Copy Gun", method = () => Movement.Copygun(), toolTip = "Lock on to a player to copy them!"}
-               new ButtonInfo { buttonText = "Zero Gravity", method = () => Movement.NoGravity()},
+               new ButtonInfo { buttonText = "Zero Gravity(CS)", method = () => Movement.NoGravity()},
             },
 
             new ButtonInfo[] { // OP Mods [11]
@@ -341,3 +341,4 @@ namespace liquidclient.Menu
         };
     }
 }
+
