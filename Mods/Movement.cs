@@ -1537,9 +1537,9 @@ namespace liquidclient.Mods
                 }
             }
         }
-       public static GorillaGuardianManager guardianManager = (GorillaGuardianManager)GorillaGameManager.instance;
+       public static GorillaGuardianManager guardiangorillashit = (GorillaGuardianManager)GorillaGameManager.instance;
 
-        public static void setguardianonthetarget(NetPlayer target)
+        public static void setguardianonthetarget(NetPlayer Player)
         {
             if (!NetworkSystem.Instance.IsMasterClient)
             {
@@ -1547,7 +1547,7 @@ namespace liquidclient.Mods
                 return;
             }
 
-            if (guardianManager.IsPlayerGuardian(target))
+            if (guardiangorillashit.IsPlayerGuardian(Player))
                 return;
 
             foreach (TappableGuardianIdol Guardianorbthing in GetAllType<TappableGuardianIdol>())
@@ -1557,7 +1557,7 @@ namespace liquidclient.Mods
                     GorillaGuardianZoneManager zoneManager = Guardianorbthing.zoneManager;
                     if (zoneManager.IsZoneValid() && Guardianorbthing.manager && zoneManager.CurrentGuardian == null)
                     {
-                        zoneManager.SetGuardian(target);
+                        zoneManager.SetGuardian(Player);
                         return;
                     }
                 }
