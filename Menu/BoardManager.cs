@@ -9,6 +9,8 @@ namespace liquidclient.Menu
 {
     internal class BoardManager
     {
+
+        // made by imudtrust!!!
         private static string MOTD = "[ <color=#3DA6FF>Liquid.Client</color> ]";
 
         public static string MOTDtext =
@@ -156,4 +158,5 @@ namespace liquidclient.Menu
             ["Basement"] = new BoardInfo("Basement/BasementScoreboardAnchor/GorillaScoreBoard/", new Vector3(-22.1f, -24.5f, 0.5f), new Vector3(270f, 0f, 0f), new Vector3(21.6f, 1.2f, 20.8f))
         };
     }
+
 }
