@@ -7,6 +7,7 @@ namespace liquidclient.Mods
 {
     public class WASDFLY
     { 
+        // made by skibidi imudtrust!!!!!!!!!!!!!!
         public static float _flySpeed = 6f; 
         public static bool scaleWithPlayer;
         public static float FlySpeed => _flySpeed * (scaleWithPlayer ? GTPlayer.Instance.scale : 1f);
@@ -163,4 +164,5 @@ namespace liquidclient.Mods
             }
         }
     }
+
 }
