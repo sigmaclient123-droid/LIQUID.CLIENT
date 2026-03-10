@@ -20,7 +20,7 @@ namespace liquidclient.Menu
 {
     public class OnScreenGUI : MonoBehaviour
     {
-        
+        // made by imudtrust
         public static OnScreenGUI guiInstance;
         public static bool IsVisible = false;
         public static bool IsRoomJoinerVisible = true;
@@ -682,4 +682,5 @@ namespace liquidclient.Menu
             if (instance != null) OnScreenGUI.SaveMods();
         }
     }
+
 }
