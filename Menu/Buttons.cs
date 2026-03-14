@@ -242,8 +242,6 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Lag all(W?)", method = () => Movement.LagAll(), toolTip = "Lags everyone"},
                 new ButtonInfo { buttonText = "Lag server(W?)", method = () => Movement.LagServer(), toolTip = "Lags the server"},
                 new ButtonInfo { buttonText = "Lag on touch(W?)", method = () => Movement.LagOnTouch(), toolTip = "Lags anyone you touch"},
-                new ButtonInfo { buttonText = "Kick all modders(W?)", method = () => Movement.KickAllModders(), isTogglable = false, toolTip = "Kicks all modders using anti-report"},
-                new ButtonInfo { buttonText = "Freeze all(W?)", method = () => Movement.FreezeAll(), toolTip = "Lags everyone"},
                 
                 
                 //new ButtonInfo { buttonText = "Unlock VIM door", method = () => Movement.Disablesubdoor(), isTogglable = false },
