@@ -1,11 +1,9 @@
-using System.Collections.Generic;
-using System.Linq;
 using admintest;
+using GorillaLocomotion;
 using GorillaNetworking;
 using liquid.client.Mods;
 using liquid.client.Patches.Internal;
 using liquid.client.SoundManager;
-using Photon.Pun;
 using liquidclient.Classes;
 using liquidclient.GunLib;
 using liquidclient.Managers;
@@ -13,11 +11,14 @@ using liquidclient.mods;
 using liquidclient.Mods;
 using liquidclient.Notifications;
 using liquidclient.Patches.Menu;
+using Photon.Pun;
+using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using static liquidclient.Menu.Main;
-using static liquidclient.Settings;
 using static liquidclient.Mods.Movement;
+using static liquidclient.Settings;
 
 namespace liquidclient.Menu
 {
@@ -107,7 +108,7 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Visual Mods", method = () => currentCategory = 9, isTogglable = false },
                 new ButtonInfo { buttonText = "Fun Mods", method = () => currentCategory = 10, isTogglable = false },
                 new ButtonInfo { buttonText = "OP Mods", method = () => currentCategory = 11, isTogglable = false },
-                new ButtonInfo { buttonText = "Sounds", method = () => currentCategory = 12, isTogglable = false },
+                //new ButtonInfo { buttonText = "Sounds", method = () => currentCategory = 12, isTogglable = false },
             },
 
             new ButtonInfo[] { // Settings [1]
@@ -152,8 +153,7 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Fly", method = () => Movement.Fly() },
                 //new ButtonInfo { buttonText = "Teleport Gun", method = () => Movement.TeleportGun() },
                 new ButtonInfo { buttonText = "Speedboost", method = () => Movement.speedboost() },
-                new ButtonInfo { buttonText = "Checkpoint", method = () => Checkpoint(), disableMethod = () => Deletecheckpoint(), isTogglable = true },
-                //new ButtonInfo { buttonText = "WASD fly", method = () => Movement.WASDFly() },
+                new ButtonInfo { buttonText = "Checkpoint", method = () => Checkpoint(), disableMethod = () => GameObject.Destroy(CheckPoint), isTogglable = true },
                 new ButtonInfo { buttonText = "WASD Fly", method = () => WASDFLY.WASDFly(), isTogglable = true },
                 new ButtonInfo { buttonText = "Tp Stump", method = () => Movement.TP_Stump(), isTogglable = false },
                 new ButtonInfo { buttonText = "Fast SpeedBoost", method = () => Movement.fastspeedboost() },
@@ -167,7 +167,8 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "trigger fly", method = () => Movement.triggerFly() },
                 new ButtonInfo { buttonText = "fast trigger fly", method = () => Movement.fasttriggerFly() },
                 //new ButtonInfo { buttonText = "invs monke", method = () => Movement.Invismonk() },
-                
+                //new ButtonInfo { buttonText = "Long Arms", enableMethod = () => Movement.Longarms(11f), disableMethod = () => GTPlayer.Instance.maxArmLength = 0f, toolTip = "Makes Your Arms Longer!" },
+
                 new ButtonInfo { buttonText = "Bird Fly", method = Movement.BirdFly, toolTip = "Makes you fly like a bird when you flap your wings."},
                 new ButtonInfo { buttonText = "Iron Monke", method = () => IronMan(), isTogglable = true },
                 
@@ -212,7 +213,6 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Tracers", method = () => Movement.Tracer() },
                 new ButtonInfo { buttonText = "Beacons", method = () => Movement.beacons() },
                 new ButtonInfo { buttonText = "Chams", method = () => Movement.chams(), disableMethod = Movement.ChamsOff},
-                //new ButtonInfo { buttonText = "Box ESP", method = () => Movement.Box_ESP()},
                 new ButtonInfo { buttonText = "Nametags",  method = () => InfoTagManager.UpdateTracker(), disableMethod = () => InfoTagManager.ToggleInformationNameTags(false), isTogglable = true,
                 },
                 new ButtonInfo { buttonText = "Clear Notifs", method = () => NotifiLib.ClearAllNotifications(), isTogglable = false },
@@ -224,39 +224,40 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Spaz Head", method = () => Movement.SpazHead()},
                 new ButtonInfo { buttonText = "Bounce", method = () => Movement.Bouncy(), disableMethod = Movement.ResetBouncy },
                 new ButtonInfo { buttonText = "Platfom Spam", method = () => Movement.PlatformSpam() },
-                new ButtonInfo { buttonText = "Upsidedown Head", method = () => Movement.upsidedownhead(), disableMethod = Movement.FixRig },
+                new ButtonInfo { buttonText = "Upsidedown Head", method = () => Movement.UpsideDownHead(), disableMethod = Movement.FixRig },
                 new ButtonInfo { buttonText = "Broken Neck", method = () => Movement.BrokenNeck(), disableMethod = Movement.FixRig },
                 new ButtonInfo { buttonText = "Rainbow Bracelet", enableMethod = () => Movement.RainbowBracelet(), disableMethod = () => Movement.disableRainbowBracelet() },
-                //new ButtonInfo { buttonText = "Builder watch(SS?)", method = () => Movement.Builderwatch() },
                 new ButtonInfo { buttonText = "Set Quest Score To 100k", method = () => Movement.addqueststuff(100000), disableMethod = () => Mods.Movement.Resetqueststuff() },
-                //new ButtonInfo { buttonText = "spawn hoverbord", method = () => Movement.SSHoverboardSpawn() },
                 new ButtonInfo { buttonText = "Spawn Hoverboard", method = Movement.SpawnHowerdBoard, disableMethod = Movement.DisableHoverboard, toolTip = "Gives you the hoverboard no matter where you are."},
                // new ButtonInfo { buttonText = "Copy Gun", method = () => Movement.Copygun(), toolTip = "Lock on to a player to copy them!"}
-               new ButtonInfo { buttonText = "Zero Gravity(CS)", method = () => Movement.NoGravity()},
+               new ButtonInfo { buttonText = "Zero Gravity(CS)", method = () => Zerogravityhelper(true, false)},
+               new ButtonInfo { buttonText = "High Gravity(CS)", method = () => Zerogravityhelper(false, true)},
+               new ButtonInfo { buttonText = "Fast Hoverboard", method = () => Movement.Fasthoverboarderr()},
+               //new ButtonInfo { buttonText = "Fling on grab(OP)", method = () => Movement.Flingongrab(100f)},
             },
 
             new ButtonInfo[] { // OP Mods [11]
                 //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
                 new ButtonInfo { buttonText = "Ghost Money", method = () => Movement.AddCurrencySelf() },
-                //new ButtonInfo { buttonText = "Stutter all", method = () => Movement.stutterall() },
-                //new ButtonInfo { buttonText = "Lag Server", method =() => Movement.FreezeServer(1f, 11), toolTip = "Lags the room." },
-                //new ButtonInfo { buttonText = "Freeze Server", enableMethod =() => SerializePatch.OverrideSerialization = () => false, method =() => Movement.FreezeServer(), disableMethod =() => SerializePatch.OverrideSerialization = null, toolTip = "Freezes the room creds to ii for inspiration." },
-                //new ButtonInfo { buttonText = "Crash Server", enableMethod =() => SerializePatch.OverrideSerialization = () => false, method =() => Movement.FreezeServer(0.1f, 40), disableMethod =() => SerializePatch.OverrideSerialization = null, toolTip = "Crashes the room." },
-                //new ButtonInfo { buttonText = "Kick Master Client", enableMethod = () => Movement.kickCoroutine = CoroutineManager.instance.StartCoroutine(Movement.KickMasterClient()), method =() => { if (Movement.kickCoroutine == null) Toggle("Kick Master Client"); }, disableMethod =() => { SerializePatch.OverrideSerialization = null; Movement.kickCoroutine = null; }, toolTip = "Kicks the master client from the room."},
-                //new ButtonInfo { buttonText = "Kick All", enableMethod = () => Movement.kickCoroutine = CoroutineManager.instance.StartCoroutine(Movement.KickAll()), method =() => { if (Movement.kickCoroutine == null) Toggle("Kick All"); }, disableMethod =() => { SerializePatch.OverrideSerialization = null; Movement.kickCoroutine = null; }, toolTip = "Kicks everyone above you from the room."},
+                new ButtonInfo { buttonText = "Lag all(W?)", method = () => Movement.LagAll(), toolTip = "Lags everyone"},
+                new ButtonInfo { buttonText = "Lag server(W?)", method = () => Movement.LagServer(), toolTip = "Lags the server"},
+                new ButtonInfo { buttonText = "Lag on touch(W?)", method = () => Movement.LagOnTouch(), toolTip = "Lags anyone you touch"},
+                new ButtonInfo { buttonText = "Kick all modders(W?)", method = () => Movement.KickAllModders(), isTogglable = false, toolTip = "Kicks all modders using anti-report"},
+                new ButtonInfo { buttonText = "Freeze all(W?)", method = () => Movement.FreezeAll(), toolTip = "Lags everyone"},
+                
                 
                 //new ButtonInfo { buttonText = "Unlock VIM door", method = () => Movement.Disablesubdoor(), isTogglable = false },
                 new ButtonInfo { buttonText = "Flash Gray Screen", method = () => Movement.FlashGrayScreenSSAll(), isTogglable = true },
                 new ButtonInfo { buttonText = "Gray Screen/No gravity(SS)(M)", enableMethod = () => Movement.GrayScreenThing(true), disableMethod  = () => Movement.GrayScreenThing(false), },
-                new ButtonInfo { buttonText = "Guardian Self(SS)(M)", method = () => setguardianonthetarget(Photon_local_player), isTogglable = false, toolTip = "Makes you guardian"},
-                new ButtonInfo { buttonText = "UnGuardian Self(SS)(M)", method = () => unguardianplayer(), isTogglable = false, toolTip = "Makes you not guardian"}
+                //new ButtonInfo { buttonText = "Guardian Self(SS)(M)", method = () => setguardianonthetarget(Photon_local_player), isTogglable = false, toolTip = "Makes you guardian"},
+                //new ButtonInfo { buttonText = "UnGuardian Self(SS)(M)", method = () => unguardianplayer(), isTogglable = false, toolTip = "Makes you not guardian"}
             },
 
             new ButtonInfo[] { // Sounds [12]
                 //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
-                new ButtonInfo { buttonText = "Jman sound spam", method = () => Movement.JmancurlySoundSpam() },
-                new ButtonInfo { buttonText = "Crystal sound spam", method = () => Movement.CrystalSoundSpam() },
-                new ButtonInfo { buttonText = "Squeak sound spam", method = () => Movement.SqueakSoundSpam() },
+                //new ButtonInfo { buttonText = "Jman sound spam", method = () => Movement.JmancurlySoundSpam() },
+                //new ButtonInfo { buttonText = "Crystal sound spam", method = () => Movement.CrystalSoundSpam() },
+                //new ButtonInfo { buttonText = "Squeak sound spam", method = () => Movement.SqueakSoundSpam() },
                 //new ButtonInfo { buttonText = "Siren sound spam", method = () => Movement.SirenSoundSpam() },
             },
 
@@ -341,4 +342,3 @@ namespace liquidclient.Menu
         };
     }
 }
-
