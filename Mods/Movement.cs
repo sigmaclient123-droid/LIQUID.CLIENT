@@ -1,52 +1,79 @@
-using System.Collections;
 using BepInEx;
 using ExitGames.Client.Photon;
 using GorillaGameModes;
 using GorillaLocomotion;
 using GorillaLocomotion.Gameplay;
+using GorillaLocomotion.Swimming;
 using GorillaNetworking;
+using liquid.client.Patches.Internal;
+using liquidclient.Classes;
+using liquidclient.GunLib;
+using liquidclient.Menu;
+using liquidclient.mods;
+using liquidclient.Notifications;
+using liquidclient.Patches.Internal;
 using Oculus.Interaction.Grab.GrabSurfaces;
 using Oculus.Interaction.Input;
 using Photon;
 using Photon.Pun;
 using Photon.Realtime;
-using liquidclient.Classes;
-using liquidclient.Notifications;
-using liquidclient.Patches.Internal;
-using System.Collections.Generic;
-using System.Linq;
-using GorillaLocomotion.Swimming;
-using liquid.client.Patches.Internal;
-using liquidclient.Menu;
-using liquidclient.mods;
 using Photon.Voice;
 using Photon.Voice.PUN;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Animations.Rigging;
 using UnityEngine.InputSystem;
 using UnityEngine.XR;
 using Valve.VR.InteractionSystem;
 using static liquidclient.Menu.Main;
 using Hashtable = ExitGames.Client.Photon.Hashtable;
 using Player = Photon.Realtime.Player;
-using liquidclient.GunLib;
 
 
 namespace liquidclient.Mods
 {
     public class Movement
     {
+        // Player
         public static NetPlayer Photon_local_player = PhotonNetwork.LocalPlayer;
         public static NetPlayer Network_local_player = NetworkSystem.Instance.LocalPlayer;
-        // guardian varibles
-        public static GorillaGuardianManager guardiangorillashit = (GorillaGuardianManager)GorillaGameManager.instance;
+        public static VRRig Rig = GorillaTagger.Instance.offlineVRRig;
+        public static Rigidbody Rig_Rigidbody = GorillaTagger.Instance.rigidbody;
+        // Guardian Varibles
+        public static GorillaGuardianManager GuardianManager = (GorillaGuardianManager)GorillaGameManager.instance;
         public static void Fly()
         {
             if (ControllerInputPoller.instance.rightControllerPrimaryButton)
             {
                 GTPlayer.Instance.transform.position += GorillaTagger.Instance.headCollider.transform.forward * Time.deltaTime * Settings.Movement.flySpeed;
-                GorillaTagger.Instance.rigidbody.linearVelocity = Vector3.zero;
+                Rig_Rigidbody.linearVelocity = Vector3.zero;
             }
+        }
+
+        public static void Zerogravityhelper(bool Nograv, bool Highgrav)
+        {
+            if (Nograv)
+            {
+                ZeroGravity();
+            }
+
+            if (Highgrav)
+            {
+                HighGravity();
+            }
+        }
+        public static void ZeroGravity() =>
+            Rig_Rigidbody.AddForce(-Physics.gravity, ForceMode.Acceleration);
+
+        public static void HighGravity() =>
+            GorillaTagger.Instance.rigidbody.AddForce(Vector3.down * 6.93f, ForceMode.Acceleration);
+
+        public static void Longarms(float Howlong)
+        {
+            GTPlayer.Instance.maxArmLength = Howlong;
         }
 
         public static void unguardianplayer()
@@ -59,10 +86,126 @@ namespace liquidclient.Mods
             else NotifiLib.SendNotification("Not master client");
         }
 
-        public static void NoGravity()
+        private static IEnumerator SendFreezeAllPackets(RaiseEventOptions opts)
         {
-            Physics.gravity = new Vector3(0, 0f, 0);
+            for (int i = 0; i < 2500; i++)
+            {
+                PhotonNetwork.RaiseEvent(51, new object[] { "whoisthis" }, opts, SendOptions.SendReliable);
+                //PhotonNetwork.RaiseEvent(160, new object[] { "brothisgamesucks" }, opts, SendOptions.SendReliable);
+                yield return new WaitForSeconds(0.001f);
+            }
         }
+
+        private static float freezeAllDelay = 0f;
+        private static float freezeServerDelay = 0f;
+
+        public static void FreezeAll()
+        {
+            if (!PhotonNetwork.InRoom) return;
+            if (Time.time < freezeAllDelay) return;
+            freezeAllDelay = Time.time + 10f;
+
+            RPCProtection();
+            var opts = new RaiseEventOptions { Flags = new WebFlags(byte.MaxValue), Receivers = ReceiverGroup.Others };
+            GorillaTagger.Instance.StartCoroutine(SendFreezeAllPackets(opts));
+        }
+
+
+        private static float kickAllModdersDelay = 0f;
+
+        public static void KickAllModders()
+        {
+            if (Time.time < kickAllModdersDelay) return;
+            kickAllModdersDelay = Time.time + 2f;
+
+            foreach (var line in GorillaScoreboardTotalUpdater.allScoreboardLines)
+            {
+                if (line.linePlayer != null && !line.linePlayer.IsLocal)
+                {
+                    line.reportButton.isOn = true;
+                    line.reportedCheating = true;
+                    line.PressButton(true, GorillaPlayerLineButton.ButtonType.Report);
+                }
+            }
+        }
+
+        public static void LagAll()
+        {
+            bool flag = ControllerInputPoller.instance.rightGrab || UnityInput.Current.GetMouseButton(1);
+            if (flag)
+            {
+                bool flag2 = PhotonNetwork.InRoom && Time.time >= delay;
+                if (flag2)
+                {
+                    delay = Time.time + 11.25f;
+                    for (int i = 0; i < 3000; i++)
+                    {
+                        PhotonNetwork.NetworkingClient.OpRaiseEvent(202, new object[0], new RaiseEventOptions
+                        {
+                            Receivers = Photon.Realtime.ReceiverGroup.All
+                        }, SendOptions.SendUnreliable);
+                        RPCProtection();
+                    }
+                }
+            }
+        }
+        public static void LagServer()
+        {
+            bool flag = !PhotonNetwork.InRoom;
+            if (!flag)
+            {
+                bool flag2 = Time.time > freezedelay;
+                if (flag2)
+                {
+                    for (int i = 0; i < 11; i++)
+                    {
+                        WebFlags flags = new WebFlags(byte.MaxValue);
+                        NetEventOptions netEventOptions = new NetEventOptions
+                        {
+                            Flags = flags,
+                            TargetActors = new int[]
+                            {
+                -1
+                            }
+                        };
+                        byte b = 170;
+                        NetworkSystemRaiseEvent.RaiseEvent(b, new object[]
+                        {
+            "IMUDTRUST ON TOP!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                        }, netEventOptions, false);
+                    }
+                    freezedelay = Time.time + 1f;
+                    RPCProtection();
+                }
+            }
+        }
+
+        public static float freezedelay;
+
+        public static float delay = 0f;
+
+        public static void LagOnTouch()
+        {
+            bool flag = Vector3.Distance(GTPlayer.Instance.LeftHand.controllerTransform.position, VRRig.LocalRig.transform.position) < 0.1f;
+            if (flag)
+            {
+                bool flag2 = PhotonNetwork.InRoom && Time.time >= delay;
+                if (flag2)
+                {
+                    delay = Time.time + 11.25f;
+                    for (int i = 0; i < 3000; i++)
+                    {
+                        PhotonNetwork.NetworkingClient.OpRaiseEvent(202, new object[0], new RaiseEventOptions
+                        {
+                            Receivers = (ReceiverGroup)1
+                        }, SendOptions.SendUnreliable);
+                        RPCProtection();
+                    }
+                }
+            }
+        }
+
+
 
         public static void IronMan()
         {
@@ -103,8 +246,9 @@ namespace liquidclient.Mods
             sphere.GetComponent<Renderer>().material = mat;
             Object.Destroy(sphere, 0.3f);
         }
-
+        
         public static GameObject CheckPoint;
+        // NO THIS IS NOT SKIDDED I MADE THIS
         public static void Checkpoint()
         {
 
@@ -130,15 +274,10 @@ namespace liquidclient.Mods
                     }
                     else
                     {
-                        CheckPoint.GetComponent<Renderer>().material.color = Color.yellow;
+                        CheckPoint.GetComponent<Renderer>().material.color = Color.navyBlue;
                     }
                 }
             }
-        }
-
-        public static void Deletecheckpoint()
-        {
-            GameObject.Destroy(CheckPoint);
         }
 
         public static void TeleportPlayer(Vector3 pos)
@@ -158,14 +297,6 @@ namespace liquidclient.Mods
         public static Vector3 World2Player(Vector3 world)
         {
             return world - GorillaTagger.Instance.bodyCollider.transform.position + GorillaTagger.Instance.transform.position;
-        }
-        public static void DisableCheckpoint()
-        {
-            if (CheckPoint != null)
-            {
-                UnityEngine.Object.Destroy(CheckPoint);
-                CheckPoint = null;
-            }
         }
 
         // Right hand
@@ -591,8 +722,8 @@ namespace liquidclient.Mods
         }
 
         private static bool ghosted = false;
-        private static GameObject Rballhand = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        private static GameObject Lballhand = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        //private static GameObject Rballhand = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        //private static GameObject Lballhand = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         public static void Ghost()
         {
             if (ControllerInputPoller.instance.rightControllerPrimaryButton && ghosted == false)
@@ -667,10 +798,13 @@ namespace liquidclient.Mods
 
         public static void FixRig()
         {
-            GorillaTagger.Instance.offlineVRRig.head.trackingRotationOffset.x = 0f;
-            GorillaTagger.Instance.offlineVRRig.head.trackingRotationOffset.y = 0f;
-            GorillaTagger.Instance.offlineVRRig.head.trackingRotationOffset.z = 0f;
-            GorillaTagger.Instance.offlineVRRig.enabled = true;
+            Rig.head.trackingRotationOffset.x = 0f;
+            Rig.head.trackingRotationOffset.y = 0f;
+            Rig.head.trackingRotationOffset.z = 0f;
+            Rig.headBodyOffset.y = 0;
+            Rig.headBodyOffset.x = 0;
+            Rig.headBodyOffset.z = 0;
+            Rig.enabled = true;
         }
 
         
@@ -790,11 +924,6 @@ namespace liquidclient.Mods
                 }
             }
         }
-
-        public static void upsidedownhead()
-        {
-            VRRig.LocalRig.head.trackingRotationOffset.z = 180f;
-        }
         public static void ffps()
         {
             Application.targetFrameRate = 5;
@@ -813,68 +942,18 @@ namespace liquidclient.Mods
             QualitySettings.vSyncCount = 0;
         }
 
-        public static void MuteTarget(object target)
-        {
-            RaiseEventOptions raiseOptions = new RaiseEventOptions();
+        
 
-            if (target is ReceiverGroup group)
-                raiseOptions.Receivers = group;
-            else if (target is int[] actors)
-                raiseOptions.TargetActors = actors;
-            else if (target is RaiseEventOptions options)
-                raiseOptions = options;
-            else
-                return;
-
-            SendOptions sendOptions = new SendOptions
-            {
-                Reliability = false,
-                Channel = 0
-            };
-
-
-            Dictionary<byte, object> voiceData = new Dictionary<byte, object>
-            {
-                { 1, 255 },
-                { 2, 48000 },
-                { 3, 2 },
-                { 4, 20000 },
-                { 5, 30000 },
-                { 10, null },
-                { 11, (byte)0 },
-                { 12, Codec.AudioOpus }
-            };
-
-            object[] eventData =
-            {
-                (byte)0,
-                (byte)1,
-                new object[] { voiceData }
-            };
-
-            PhotonVoiceNetwork.Instance.Client.OpRaiseEvent(
-                202,
-                eventData,
-                raiseOptions,
-                sendOptions
-            );
-        }
-
-        public static void ServerMuteAll()
-        {
-            for (int i = 0; i < 2; i++)
-                MuteTarget(ReceiverGroup.All);
-        }
+       
 
 
         public static void GrabRig()
         {
             if (ControllerInputPoller.instance.rightGrab)
             {
-                var Player = GorillaLocomotion.GTPlayer.Instance;
+                GTPlayer Player = GTPlayer.Instance;
                 GorillaTagger.Instance.offlineVRRig.enabled = false;
                 GorillaTagger.Instance.offlineVRRig.transform.position = Player.RightHand.controllerTransform.position;
-                GorillaTagger.Instance.offlineVRRig.transform.rotation = Player.RightHand.controllerTransform.rotation;
             }
             else
             {
@@ -885,147 +964,7 @@ namespace liquidclient.Mods
         public static string serverLink = "https://discord.gg/3erAJbNem9";
 
 
-        public static Coroutine kickCoroutine;
-        public static IEnumerator KickMasterClient()
-        {
-            //ButtonInfo button = Buttons.GetIndex("Kick Master Client");
-            if (!NetworkSystem.Instance.InRoom)
-            {
-                NotifiLib.SendNotification("<color=grey>[</color><color=red>ERROR</color><color=grey>]</color> You are not in a room.");
-                kickCoroutine = null;
-                yield break;
-            }
-
-            if (NetworkSystem.Instance.IsMasterClient)
-            {
-                NotifiLib.SendNotification("<color=grey>[</color><color=red>ERROR</color><color=grey>]</color> You are master client! You have no one to kick.");
-                kickCoroutine = null;
-                yield break;
-            }
-
-            SerializePatch.OverrideSerialization = () => false;
-
-            Player player = PhotonNetwork.MasterClient;
-            VRRig rig = RigManager.GetVRRigFromPlayer(PhotonNetwork.MasterClient);
-            string name = $"<color=#{(rig != null ? ColorUtility.ToHtmlStringRGBA(rig.GetColor()) : "white")}>{player.NickName}</color>";
-            NotifiLib.SendNotification($"<color=grey>[</color><color=purple>KICK</color><color=grey>]</color> Kicking {name}.");
-            float time;
-            RPCProtection();
-        kick:
-            {
-                time = Time.time + 10f;
-                int view = PhotonNetwork.AllocateViewID(0);
-                for (int i = 0; i < 3965; i++)
-                {
-                    PhotonNetwork.NetworkingClient.OpRaiseEvent(202, new Hashtable
-                    {
-                        { 0, "GameMode" },
-                        { 6, PhotonNetwork.ServerTimestamp },
-                        { 7, view }
-                    }, new RaiseEventOptions
-                    {
-                        Receivers = ReceiverGroup.MasterClient
-                    }, SendOptions.SendReliable);
-                }
-            }
-
-
-            while (PhotonNetwork.PlayerList.Contains(player))
-            {
-                if (Time.time > time)
-                {
-                    NotifiLib.SendNotification($"<color=grey>[</color><color=purple>KICK</color><color=grey>]</color> Could not kick {name}. Trying again..");
-                    yield return null;
-                    goto kick;
-                }
-                yield return null;
-            }
-
-            SerializePatch.OverrideSerialization = null;
-            NotifiLib.SendNotification($"<color=grey>[</color><color=green>SUCCESS</color><color=grey>]</color> {name} has been kicked!");
-            kickCoroutine = null;
-        }
-
-        public static IEnumerator KickAll()
-        {
-            //ButtonInfo button = Buttons.GetIndex("Kick Master Client");
-
-            if (!NetworkSystem.Instance.InRoom)
-            {
-                NotifiLib.SendNotification("<color=grey>[</color><color=red>ERROR</color><color=grey>]</color> You are not in a room.");
-                kickCoroutine = null;
-                yield break;
-            }
-
-            if (NetworkSystem.Instance.IsMasterClient)
-            {
-                kickCoroutine = null;
-                yield break;
-            }
-
-            SerializePatch.OverrideSerialization = () => false;
-
-            while (!PhotonNetwork.LocalPlayer.IsMasterClient)
-            {
-                Player player = PhotonNetwork.MasterClient;
-                if (player == null)
-                    break;
-
-                VRRig rig = RigManager.GetVRRigFromPlayer(player);
-                string name = $"<color=#{(rig != null ? ColorUtility.ToHtmlStringRGBA(rig.GetColor()) : "white")}>{player.NickName}</color>";
-
-                NotifiLib.SendNotification($"<color=grey>[</color><color=purple>KICK</color><color=grey>]</color> Kicking {name}.");
-                RPCProtection();
-                float time;
-            kick:
-                {
-                    time = Time.time + 10f;
-                    int view = PhotonNetwork.AllocateViewID(0);
-                    for (int i = 0; i < 3965; i++)
-                    {
-                        PhotonNetwork.NetworkingClient.OpRaiseEvent(202, new Hashtable
-                        {
-                            { 0, "GameMode" },
-                            { 6, PhotonNetwork.ServerTimestamp },
-                            { 7, PhotonNetwork.AllocateViewID(0) }
-                        }, new RaiseEventOptions
-                        {
-                            Receivers = ReceiverGroup.MasterClient
-                        }, SendOptions.SendReliable);
-                    }
-                }
-
-                while (PhotonNetwork.MasterClient == player)
-                {
-                    if (Time.time > time)
-                    {
-                        NotifiLib.SendNotification($"<color=grey>[</color><color=red>KICK</color><color=grey>]</color> Could not kick {name}, trying again..");
-                        yield return null;
-                        goto kick;
-                    }
-                    yield return null;
-                }
-
-                if (!PhotonNetwork.InRoom)
-                {
-                    NotifiLib.SendNotification($"<color=grey>[</color><color=red>ERROR</color><color=grey>]</color> Kicking {name} failed. :(");
-                    kickCoroutine = null;
-                    yield break;
-                }
-
-                int left = (Time.time - (time - 10f)) < 2.5f ? 10 : 5;
-
-                NotifiLib.SendNotification($"<color=grey>[</color><color=green>SUCCESS</color><color=grey>]</color> {name} has been kicked! Waiting {left} seconds to kick the next person..");
-                yield return new WaitForSeconds(left);
-
-            }
-
-            SerializePatch.OverrideSerialization = null;
-
-            NotifiLib.SendNotification($"<color=grey>[</color><color=green>SUCCESS</color><color=grey>]</color> Kicked all successfully!");
-
-            kickCoroutine = null;
-        }
+        
 
         private static bool hasGrabbedHoverboard;
         public static void SpawnHowerdBoard()
@@ -1104,59 +1043,7 @@ namespace liquidclient.Mods
             VRRig.LocalRig.head.trackingRotationOffset.y = 90f;
         }
 
-        public static void InvisibleMod()
-        {
-            bool rightControllerSecondaryButton = ControllerInputPoller.instance.rightControllerSecondaryButton;
-            if (rightControllerSecondaryButton)
-            {
-                GorillaTagger.Instance.offlineVRRig.headBodyOffset.x = 180f;
-            }
-            else
-            {
-                GorillaTagger.Instance.offlineVRRig.headBodyOffset.x = 0f;
-            }
-        }
-
-        private static float freezeAllDelay;
-        public static bool muteOnFreeze;
-        public static void FreezeServer(float delay = 0.1f, int eventCount = 11, RaiseEventOptions options = null)
-        {
-            if (!PhotonNetwork.InRoom) return;
-
-            options ??= new RaiseEventOptions
-            {
-                Flags = new WebFlags(byte.MaxValue),
-                TargetActors = new[] { -1 }
-            };
-
-            if (muteOnFreeze)
-            {
-                for (int i = 0; i < 10; i++)
-                    MuteTarget(options);
-            }
-
-            if (Time.time > freezeAllDelay)
-            {
-                for (int i = 0; i < eventCount; i++)
-                    PhotonNetwork.RaiseEvent(51, new object[] { serverLink }, options, SendOptions.SendUnreliable);
-
-                RPCProtection();
-                freezeAllDelay = Time.time + delay;
-            }
-        }
-
-        public static void GhostMonke()
-        {
-            bool rightControllerPrimaryButton = ControllerInputPoller.instance.rightControllerPrimaryButton;
-            if (rightControllerPrimaryButton)
-            {
-                GorillaTagger.Instance.offlineVRRig.enabled = false;
-            }
-            else
-            {
-                GorillaTagger.Instance.offlineVRRig.enabled = true;
-            }
-        }
+        
 
         public static void RPCProtection()
         {
@@ -1180,28 +1067,6 @@ namespace liquidclient.Mods
         public static void FlushRPCs()
         {
             RPCProtection();
-        }
-
-        // Giant thanks to Visor Paid
-        private static float delay = 5f;
-        public static void stutterall()
-        {
-            if (Time.time > delay)
-            {
-                for (int i = 0; i < 925; i++)
-                {
-                    PhotonNetwork.NetworkingClient.OpRaiseEvent(201, new object[] { float.NaN, 777 }, new RaiseEventOptions
-                    {
-                        Receivers = ReceiverGroup.Others
-                    }, new SendOptions()
-                    {
-                        DeliveryMode = DeliveryMode.UnreliableUnsequenced,
-                        Encrypt = true,
-                        Reliability = false
-                    });
-                }
-                delay = Time.time + 2f;
-            }
         }
 
         public static GameObject Forestwind = GameObject.Find("Environment Objects/LocalObjects_Prefab/Forest/Environment/Forest_ForceVolumes");
@@ -1245,24 +1110,6 @@ namespace liquidclient.Mods
             }
         }
 
-        public static void bodyTracer()
-        {
-            foreach (VRRig vrrig in VRRigCache.m_activeRigs)
-            {
-                if (vrrig != GorillaTagger.Instance.offlineVRRig)
-                {
-                    GameObject line = new GameObject("Line");
-                    LineRenderer liner = line.AddComponent<LineRenderer>();
-                    UnityEngine.Color thecolor = vrrig.playerColor;
-                    liner.startColor = thecolor; liner.endColor = thecolor; liner.startWidth = 0.010f; liner.endWidth = 0.010f; liner.positionCount = 2; liner.useWorldSpace = true;
-                    liner.SetPosition(0, GorillaTagger.Instance.rigidbody.transform.position);
-                    liner.SetPosition(1, vrrig.transform.position);
-                    liner.material.shader = Shader.Find("GUI/Text Shader");
-                    UnityEngine.Object.Destroy(line, Time.deltaTime);
-                }
-            }
-        }
-
 
 
 
@@ -1291,7 +1138,7 @@ namespace liquidclient.Mods
         }
 
         public static float isDirtyDelay;
-        // thanks to iidk for the code
+        // Thank you ii
         public static void RainbowBracelet()
         {
             Patches.Internal.BraceletPatch.enabled = true;
@@ -1349,87 +1196,14 @@ namespace liquidclient.Mods
             VRRig.LocalRig.SetQuestScore(questint);
         }
 
-
-        // Giant thanks to Visor Paid
-        private static float delay1 = 1.70f;
-        public static void stutterallunsafe()
-        {
-            if (Time.time > delay1)
-            {
-                for (int i = 0; i < 925; i++)
-                {
-                    PhotonNetwork.NetworkingClient.OpRaiseEvent(201, new object[] { float.NaN, 777 }, new RaiseEventOptions
-                    {
-                        Receivers = ReceiverGroup.Others
-                    }, new SendOptions()
-                    {
-                        DeliveryMode = DeliveryMode.UnreliableUnsequenced,
-                        Encrypt = true,
-                        Reliability = false
-                    });
-                }
-                delay1 = Time.time + 2f;
-            }
-        }
-
         public static void SetBraceletState(bool enable, bool isLeftHand) =>
             GorillaTagger.Instance.myVRRig.SendRPC("EnableNonCosmeticHandItemRPC", RpcTarget.All, enable, isLeftHand);
 
 
-        public static void CrystalSoundSpam()
-        {
-            int[] sounds = {
-                Random.Range(40,54),
-                Random.Range(214,221)
-            };
-            SoundSpam(sounds[Random.Range(0, 1)]);
-        }
+        
 
 
-        private static float soundSpamDelay;
-        public static void SoundSpam(int soundId, bool constant = false)
-        {
-            if (ControllerInputPoller.instance.rightGrab || constant)
-            {
-                if (Time.time > soundSpamDelay)
-                    soundSpamDelay = Time.time + 0.1f;
-                else
-                    return;
-
-                if (PhotonNetwork.InRoom)
-                {
-                    GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlayHandTap", RpcTarget.All, soundId, false, 999999f);
-                    RPCProtection();
-                }
-                else
-                    VRRig.LocalRig.PlayHandTapLocal(soundId, false, 999999f);
-            }
-        }
-
-        public static void JmancurlySoundSpam() =>
-            SoundSpam(Random.Range(336, 338));
-
-
-        private static bool squeakToggle;
-        public static void SqueakSoundSpam()
-        {
-            if (Time.time > soundSpamDelay)
-                squeakToggle = !squeakToggle;
-
-            SoundSpam(squeakToggle ? 75 : 76);
-        }
-
-
-        private static bool sirenToggle;
-        public static void SirenSoundSpam()
-        {
-            if (Time.time > soundSpamDelay)
-                sirenToggle = !sirenToggle;
-
-            SoundSpam(sirenToggle ? 48 : 50);
-        }
-
-        public static int soundId;
+       
 
 
         public static void Frozone()
@@ -1536,30 +1310,7 @@ namespace liquidclient.Mods
         }
        
 
-        public static void setguardianonthetarget(NetPlayer Player)
-        {
-            if (!NetworkSystem.Instance.IsMasterClient)
-            {
-                NotifiLib.SendNotification("You are not master client.");
-                return;
-            }
-
-            if (guardiangorillashit.IsPlayerGuardian(Player))
-                return;
-
-            foreach (TappableGuardianIdol Guardianorbthing in GetAllType<TappableGuardianIdol>())
-            {
-                if (Guardianorbthing.manager && Guardianorbthing.manager.photonView && !Guardianorbthing.isChangingPositions)
-                {
-                    GorillaGuardianZoneManager zoneManager = Guardianorbthing.zoneManager;
-                    if (zoneManager.IsZoneValid() && Guardianorbthing.manager && zoneManager.CurrentGuardian == null)
-                    {
-                        zoneManager.SetGuardian(Player);
-                        return;
-                    }
-                }
-            }
-        }
+        
 
         public static void Disablesubdoor()
         {
@@ -1614,36 +1365,42 @@ namespace liquidclient.Mods
 
             FreeHoverboardManager.instance.SendDropBoardRPC(spawnPos, spawnRot, Vector3.zero, Vector3.zero, color);
         }
+        // FASTTTT VRMMMM
+        private static float Paddleboostmulti = 20f;
+        private static float tiltfowerdthing = 10f;
+        public static void Fasthoverboarderr()
+        {
+            GTPlayer.Instance.hoverboardPaddleBoostMax = float.MaxValue;
+            GTPlayer.Instance.hoverboardPaddleBoostMultiplier = Paddleboostmulti;
+            GTPlayer.Instance.hoverboardBoostGracePeriod = 0f;
+            GTPlayer.Instance.hoverTiltAdjustsForwardFactor = tiltfowerdthing;
+
+        }
 
         #region Visual
 
 
 
-        public static void Box_ESP()
-        {
 
-            foreach (VRRig vrrigs in VRRigCache.m_activeRigs)
+        /*public static void Flingongrab(float Offset)
+        {
+            if (ControllerInputPoller.instance.leftControllerSecondaryButton)
             {
-
-                if (!vrrigs.isMyPlayer && !vrrigs.isOfflineVRRig && NetworkSystem.Instance.InRoom)
-                {
-                    GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    box.transform.position = vrrigs.transform.position;
-                    box.transform.localScale = new Vector3(0.5f, 1.8f, 0.5f);
-                    box.GetComponent<Renderer>().material.shader = Shader.Find("GUI/Text Shader");
-                    box.GetComponent<Renderer>().material.color = vrrigs.playerColor;
-                    box.transform.position = vrrigs.transform.position;
-                }
+                Rig.enabled = false;
+                Rig.headBodyOffset.x = Offset;
             }
-        }
+            else
+            {
+                Rig.enabled = true;
+                Rig.headBodyOffset.y = 0;
+                Rig.headBodyOffset.x = 0;
+                Rig.headBodyOffset.z = 0;
+            }
+        }*/
 
-        public static void RemoveESP()
-        {
-            //GameObject.Destroy(box);
-            // more destroy stuff here for other ESP
-        }
+        
         #endregion
-        // Soon
+        /* Soon
         public static void Copygun()
         {
             VRRig rig = GorillaTagger.Instance.offlineVRRig;
@@ -1653,16 +1410,11 @@ namespace liquidclient.Mods
                 rig.transform.position = GunLibTEst.AthrionGunLibrary.LockedRigOrPlayerOrwhatever.transform.position;
             }, true);
             rig.enabled = true;
-        }
+        }*/
 
         public static void ResetRig()
         {
             GorillaTagger.Instance.offlineVRRig.enabled = true;
-        }
-       public static GameObject builderwatch = GameObject.Find("BuilderResizeWatch_Remote");
-        public static void Builderwatch()
-        {
-        builderwatch.SetActive(true);
         }
 
         public static void DisableFingers()
