@@ -1391,6 +1391,15 @@ namespace liquidclient.Mods
             ControllerInputPoller.instance.rightControllerSecondaryButtonTouch = false;
         }
 
+        public static void Panic()
+        {
+          foreach(ButtonInfo Enabled in Buttons.GetActiveMods())
+            {
+                Enabled.enabled = false;
+            }
+        }
+
+
     }
 }
 
