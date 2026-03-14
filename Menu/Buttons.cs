@@ -230,8 +230,8 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Set Quest Score To 100k", method = () => Movement.addqueststuff(100000), disableMethod = () => Mods.Movement.Resetqueststuff() },
                 new ButtonInfo { buttonText = "Spawn Hoverboard", method = Movement.SpawnHowerdBoard, disableMethod = Movement.DisableHoverboard, toolTip = "Gives you the hoverboard no matter where you are."},
                // new ButtonInfo { buttonText = "Copy Gun", method = () => Movement.Copygun(), toolTip = "Lock on to a player to copy them!"}
-               new ButtonInfo { buttonText = "Zero Gravity(CS)", method = () => Zerogravityhelper(true, false)},
-               new ButtonInfo { buttonText = "High Gravity(CS)", method = () => Zerogravityhelper(false, true)},
+               new ButtonInfo { buttonText = "Zero Gravity(CS)", method = () => ZeroGravity()},
+               new ButtonInfo { buttonText = "High Gravity(CS)", method = () => HighGravity()},
                new ButtonInfo { buttonText = "Fast Hoverboard", method = () => Movement.Fasthoverboarderr()},
                //new ButtonInfo { buttonText = "Fling on grab(OP)", method = () => Movement.Flingongrab(100f)},
             },
