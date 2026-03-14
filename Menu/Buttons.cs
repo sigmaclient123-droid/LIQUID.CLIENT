@@ -187,7 +187,8 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Anti Report Join Random", method = () => Safety.AntiReportJoinRand() },
                 new ButtonInfo { buttonText = "Flush Rpcs Dont Spam", method = () => Movement.FlushRPCs(), isTogglable = false },
                 new ButtonInfo { buttonText = "Auto Clear Cache", method = Safety.AutoClearCache, toolTip = "Automatically clears your game's cache (garbage collector) every minute to prevent memory leaks."},
-                new ButtonInfo { buttonText = "Disable Fingers", method = () => Movement.DisableFingers(), toolTip = "Good for plats"}
+                new ButtonInfo { buttonText = "Disable Fingers", method = () => Movement.DisableFingers(), toolTip = "Good for plats"},
+                new ButtonInfo { buttonText = "Panic", method = () => Movement.Panic(), isTogglable = false, toolTip = "Turns off all of the mods."},
             },
 
             new ButtonInfo[] { // Game Mods [8]
