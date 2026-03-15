@@ -53,12 +53,38 @@ namespace liquidclient.Mods
             }
         }
 
-        
-        public static void ZeroGravity() =>
-            Rig_Rigidbody.AddForce(-Physics.gravity, ForceMode.Acceleration);
+        public static void Slingshotfly(bool Iszerogravity)
+        {
+            if (ControllerInputPoller.instance.rightControllerPrimaryButton)
+            {
+                if (!Iszerogravity)
+                {
+                    Rig_Rigidbody.linearVelocity += GorillaTagger.Instance.headCollider.transform.forward * Time.deltaTime * Settings.Movement.flySpeed;
+                }
+                else
+                {
+                    Gravityhelper(true);
+                    Rig_Rigidbody.linearVelocity += GorillaTagger.Instance.headCollider.transform.forward * Time.deltaTime * Settings.Movement.flySpeed;
+                }
+            }
+        }
 
-        public static void HighGravity() =>
-            GorillaTagger.Instance.rigidbody.AddForce(Vector3.down * 6.93f, ForceMode.Acceleration);
+        
+        
+            
+
+        public static void Gravityhelper(bool isZerograv)
+        {
+            if (isZerograv)
+            {
+                Rig_Rigidbody.AddForce(-Physics.gravity, ForceMode.Acceleration);
+            }
+
+            if (!isZerograv)
+            {
+                Rig_Rigidbody.AddForce(Vector3.down * 6.93f, ForceMode.Acceleration);
+            }
+        }
 
         public static void Longarms(float Howlong)
         {
@@ -67,53 +93,79 @@ namespace liquidclient.Mods
 
         public static void unguardianplayer()
         {
-            if (NetworkSystem.Instance.IsMasterClient)
+            foreach (var ZoneManager in GorillaGuardianZoneManager.zoneManagers.Where(gorillaGuardianZoneManager => gorillaGuardianZoneManager.enabled && gorillaGuardianZoneManager.IsZoneValid()).Where(gorillaGuardianZoneManager => gorillaGuardianZoneManager.CurrentGuardian == Network_local_player))
             {
-                foreach (var gorillaGuardianZoneManager in GorillaGuardianZoneManager.zoneManagers.Where(gorillaGuardianZoneManager => gorillaGuardianZoneManager.enabled && gorillaGuardianZoneManager.IsZoneValid()).Where(gorillaGuardianZoneManager => gorillaGuardianZoneManager.CurrentGuardian == Network_local_player))
-                    gorillaGuardianZoneManager.SetGuardian(null);
-            }
-            else NotifiLib.SendNotification("Not master client");
+                ZoneManager.SetGuardian(null);
+            }   
         }
 
-        private static IEnumerator SendFreezeAllPackets(RaiseEventOptions opts)
+        public static void unguardianall()
         {
-            for (int i = 0; i < 2500; i++)
+            foreach (var ZoneManager in GorillaGuardianZoneManager.zoneManagers.Where(gorillaGuardianZoneManager => gorillaGuardianZoneManager.enabled && gorillaGuardianZoneManager.IsZoneValid()))
             {
-                PhotonNetwork.RaiseEvent(51, new object[] { "whoisthis" }, opts, SendOptions.SendReliable);
-                //PhotonNetwork.RaiseEvent(160, new object[] { "brothisgamesucks" }, opts, SendOptions.SendReliable);
-                yield return new WaitForSeconds(0.001f);
+                ZoneManager.SetGuardian(null);
             }
         }
 
-        
-
-        public static void LagAll()
+        public static void guardianall()
         {
-            bool flag = ControllerInputPoller.instance.rightGrab || UnityInput.Current.GetMouseButton(1);
-            if (flag)
+            int Players = 0;
+
+            foreach (var ZoneManager in GorillaGuardianZoneManager.zoneManagers.Where(gorillaGuardianZoneManager => gorillaGuardianZoneManager.enabled && gorillaGuardianZoneManager.IsZoneValid()))
             {
-                bool flag2 = PhotonNetwork.InRoom && Time.time >= delay;
-                if (flag2)
+                ZoneManager.SetGuardian(PhotonNetwork.PlayerList[Players]);
+                Players++;
+            }
+        }
+
+
+        public static void Guardianhelper(bool Makeguardian, bool Everyoneisguardian)
+        {
+            if (NetworkSystem.Instance.InRoom && NetworkSystem.Instance.IsMasterClient)
+            {
+                if (Makeguardian)
                 {
-                    delay = Time.time + 11.25f;
-                    for (int i = 0; i < 3000; i++)
+
+                    foreach (TappableGuardianIdol Guardianidol in GetAllType<TappableGuardianIdol>())
                     {
-                        PhotonNetwork.NetworkingClient.OpRaiseEvent(202, new object[0], new RaiseEventOptions
+                        GorillaGuardianZoneManager zoneManager = Guardianidol.zoneManager;
+                        if (Guardianidol.manager.photonView && Guardianidol.manager && !Guardianidol.isChangingPositions)
                         {
-                            Receivers = Photon.Realtime.ReceiverGroup.All
-                        }, SendOptions.SendUnreliable);
-                        RPCProtection();
+                            if (zoneManager.IsZoneValid() && Guardianidol.manager && zoneManager.CurrentGuardian == null)
+                            {
+                                zoneManager.SetGuardian(Photon_local_player);
+                                return;
+                            }
+                        }
                     }
+                }
+
+                if (!Makeguardian)
+                {
+                    unguardianplayer();
+                }
+
+                if (Everyoneisguardian)
+                {
+                    guardianall();
+                }
+
+                if (!Everyoneisguardian)
+                {
+                    unguardianall();
                 }
             }
         }
+            
+
+        
         public static void LagServer()
         {
-            bool flag = !PhotonNetwork.InRoom;
-            if (!flag)
+            bool inroom = !PhotonNetwork.InRoom;
+            if (!inroom)
             {
-                bool flag2 = Time.time > freezedelay;
-                if (flag2)
+                bool freezedelay_ = Time.time > freezedelay;
+                if (freezedelay_)
                 {
                     for (int i = 0; i < 11; i++)
                     {
@@ -129,7 +181,7 @@ namespace liquidclient.Mods
                         byte b = 170;
                         NetworkSystemRaiseEvent.RaiseEvent(b, new object[]
                         {
-            "IMUDTRUST ON TOP!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            "slkyy!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
                         }, netEventOptions, false);
                     }
                     freezedelay = Time.time + 1f;
@@ -141,27 +193,6 @@ namespace liquidclient.Mods
         public static float freezedelay;
 
         public static float delay = 0f;
-
-        public static void LagOnTouch()
-        {
-            bool flag = Vector3.Distance(GTPlayer.Instance.LeftHand.controllerTransform.position, VRRig.LocalRig.transform.position) < 0.1f;
-            if (flag)
-            {
-                bool flag2 = PhotonNetwork.InRoom && Time.time >= delay;
-                if (flag2)
-                {
-                    delay = Time.time + 11.25f;
-                    for (int i = 0; i < 3000; i++)
-                    {
-                        PhotonNetwork.NetworkingClient.OpRaiseEvent(202, new object[0], new RaiseEventOptions
-                        {
-                            Receivers = (ReceiverGroup)1
-                        }, SendOptions.SendUnreliable);
-                        RPCProtection();
-                    }
-                }
-            }
-        }
 
 
 
@@ -601,6 +632,8 @@ namespace liquidclient.Mods
         private static float flapTime;
         public static void BirdFly()
         {
+            UnityEngine.XR.InputDevice lefthand = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
+            UnityEngine.XR.InputDevice righthand = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
             if (Vector3.Distance(GorillaTagger.Instance.leftHandTransform.position, GorillaTagger.Instance.headCollider.transform.position) < 0.63f || Vector3.Distance(GorillaTagger.Instance.rightHandTransform.position, GorillaTagger.Instance.headCollider.transform.position) < 0.63f)
                 return;
 
@@ -609,10 +642,9 @@ namespace liquidclient.Mods
             if (Physics.Raycast(GorillaTagger.Instance.bodyCollider.attachedRigidbody.position, Vector3.down, hitInfo: out _, Physics.AllLayers))
                 return;
 
-            UnityEngine.XR.InputDevice LeftHand = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
-            UnityEngine.XR.InputDevice RightHand = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
+            
 
-            if (LeftHand.TryGetFeatureValue(UnityEngine.XR.CommonUsages.deviceVelocity, out Vector3 leftVel) && RightHand.TryGetFeatureValue(UnityEngine.XR.CommonUsages.deviceVelocity, out Vector3 rightVel))
+            if (lefthand.TryGetFeatureValue(UnityEngine.XR.CommonUsages.deviceVelocity, out Vector3 leftVel) && righthand.TryGetFeatureValue(UnityEngine.XR.CommonUsages.deviceVelocity, out Vector3 rightVel))
             {
                 if (Time.time - flapTime < 0.4f) return;
 
@@ -721,12 +753,12 @@ namespace liquidclient.Mods
 
         public static void NoClip()
         {
-            bool disablecolliders2 = ControllerInputPoller.instance.rightControllerIndexFloat > 0.1f;
+            bool DisableColliders = ControllerInputPoller.instance.rightControllerIndexFloat > 0.1f;
             MeshCollider[] colliders = Resources.FindObjectsOfTypeAll<MeshCollider>();
 
             foreach (MeshCollider collider in colliders)
             {
-                collider.enabled = !disablecolliders2;
+                collider.enabled = !DisableColliders;
             }
 
         }
@@ -882,6 +914,23 @@ namespace liquidclient.Mods
                 }
             }
         }
+
+        public static void Box_ESP()
+        {
+            foreach (VRRig vrrig in VRRigCache.m_activeRigs)
+            {
+                if (vrrig != GorillaTagger.Instance.offlineVRRig)
+                {
+                    GameObject Box = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    Box.transform.position = vrrig.transform.position;
+                    UnityEngine.Object.Destroy(Box.GetComponent<CapsuleCollider>());
+                    Box.transform.localScale = new Vector3(0.40f, 0.40f, 0.40f);
+                    Box.GetComponent<Renderer>().material.shader = Shader.Find("GUI/Text Shader");
+                    Box.GetComponent<Renderer>().material.color = vrrig.playerColor;
+                    UnityEngine.Object.Destroy(Box, Time.deltaTime);
+                }
+            }
+        }
         public static void ffps()
         {
             Application.targetFrameRate = 5;
@@ -947,13 +996,7 @@ namespace liquidclient.Mods
             VRRig.LocalRig.hoverboardVisual.gameObject.SetActive(false);
         }
 
-        public static void Rocket()
-        {
-            if (ControllerInputPoller.instance.rightGrab)
-            {
-                GorillaTagger.Instance.rigidbody.linearVelocity += Vector3.up * (Time.deltaTime * Settings.Movement.flySpeed * 5f);
-            }
-        }
+        
 
         public static void JoinRandom()
         {
@@ -1158,10 +1201,7 @@ namespace liquidclient.Mods
             GorillaTagger.Instance.myVRRig.SendRPC("EnableNonCosmeticHandItemRPC", RpcTarget.All, enable, isLeftHand);
 
 
-        
 
-
-       
 
 
         public static void Frozone()
@@ -1222,7 +1262,7 @@ namespace liquidclient.Mods
                     if (Vrrigsss.mainSkin.material.name.Contains("fected"))
                     {
                         Vrrigsss.mainSkin.material.shader = Shader.Find("GUI/Text Shader");
-                        Vrrigsss.mainSkin.material.color = Color.blue;
+                        Vrrigsss.mainSkin.material.color = Color.red;
                     }
                     else
                     {
@@ -1393,7 +1433,7 @@ namespace liquidclient.Mods
 
         public static void Panic()
         {
-          foreach(ButtonInfo Enabled in Buttons.GetActiveMods())
+            foreach (ButtonInfo Enabled in Buttons.GetActiveMods())
             {
                 Enabled.enabled = false;
             }
