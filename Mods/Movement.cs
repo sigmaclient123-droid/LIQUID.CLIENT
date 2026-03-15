@@ -21,6 +21,7 @@ using Photon.Voice;
 using Photon.Voice.PUN;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using TMPro;
 using UnityEngine;
@@ -968,7 +969,7 @@ namespace liquidclient.Mods
             }
         }
 
-        public static string serverLink = "https://discord.gg/3erAJbNem9";
+        public static string serverLink = "https://discord.gg/v744fGYkyn";
 
 
         
@@ -1062,7 +1063,7 @@ namespace liquidclient.Mods
 
                 PhotonNetwork.SendAllOutgoingCommands();
             }
-            catch { Debug.Log("RPC protection failed, are you in a lobby?"); }
+            catch { UnityEngine.Debug.Log("RPC protection failed, are you in a lobby?"); }
         }
 
         public static void FlushRPCs()
@@ -1438,6 +1439,9 @@ namespace liquidclient.Mods
                 Enabled.enabled = false;
             }
         }
+
+        public static void Joindadiscord() =>
+            Process.Start(serverLink);
 
 
     }
