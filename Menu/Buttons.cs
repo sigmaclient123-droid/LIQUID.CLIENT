@@ -1,9 +1,7 @@
-using admintest;
 using GorillaLocomotion;
 using GorillaNetworking;
 using liquid.client.Mods;
 using liquid.client.Patches.Internal;
-using liquid.client.SoundManager;
 using liquidclient.Classes;
 using liquidclient.GunLib;
 using liquidclient.Managers;
@@ -13,6 +11,7 @@ using liquidclient.Notifications;
 using liquidclient.Patches.Menu;
 using Photon.Pun;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using TMPro;
 using UnityEngine;
@@ -24,20 +23,6 @@ namespace liquidclient.Menu
 {
     public class Buttons
     {
-        
-        public static class ButtonTextUpdater
-        {
-            public static void UpdateClickButtonText(ButtonInfo button)
-            {
-                button.buttonText = $"Change Click Sound ({ChangeSoundManager.CurrentClickSoundName()})";
-            }
-
-            public static void UpdateOpenButtonText(ButtonInfo button)
-            {
-                button.buttonText = $"Change Open Sound ({ChangeSoundManager.CurrentOpenSoundName()})";
-            }
-        }
-        
         public static int GetModCount()
         {
             int count = 0;
@@ -57,7 +42,7 @@ namespace liquidclient.Menu
             }
             return count;
         }
-        
+
         public static List<ButtonInfo> GetActiveMods()
         {
             List<ButtonInfo> active = new List<ButtonInfo>();
@@ -73,7 +58,7 @@ namespace liquidclient.Menu
             }
             return active;
         }
-        
+
         public static string[] categoryNames = new string[]
         {
             "Main Menu",          // 0
@@ -89,57 +74,48 @@ namespace liquidclient.Menu
             "Fun Mods",           // 10
             "OP Mods",            // 11
             "Sounds",             // 12
-            "Admin Panel",        // 13
-            "Admin Test",         // 14
-            "GunLib Settings",    // 15
-            "Tag Mods",            // 16
-            "Owner Panel"            // 16
+            "GunLib Settings",    // 13
+            "Tag Mods",           // 14
         };
 
         public static ButtonInfo[][] buttons = new ButtonInfo[][]
         {
             new ButtonInfo[] { // Main Mods [0]
                 new ButtonInfo { buttonText = "Enabled Mods", method =() => currentCategory = 4, isTogglable = false },
-                new ButtonInfo { buttonText = "Join Discord", method = () => Movement.Joindadiscord(), isTogglable = false },
+                new ButtonInfo { buttonText = "Join Discord", method = () => Process.Start(serverLink), isTogglable = false },
                 new ButtonInfo { buttonText = "Room Mods", method = () => currentCategory = 5, isTogglable = false },
                 new ButtonInfo { buttonText = "Movement Mods", method = () => currentCategory = 6, isTogglable = false },
                 new ButtonInfo { buttonText = "Safety Mods", method = () => currentCategory = 7, isTogglable = false },
                 new ButtonInfo { buttonText = "Game Mods", method = () => currentCategory = 8, isTogglable = false },
-                new ButtonInfo { buttonText = "Tag Mods", method = () => currentCategory = 16, isTogglable = false },
+                new ButtonInfo { buttonText = "Tag Mods", method = () => currentCategory = 14, isTogglable = false },
                 new ButtonInfo { buttonText = "Visual Mods", method = () => currentCategory = 9, isTogglable = false },
                 new ButtonInfo { buttonText = "Fun Mods", method = () => currentCategory = 10, isTogglable = false },
                 new ButtonInfo { buttonText = "OP Mods", method = () => currentCategory = 11, isTogglable = false },
                 new ButtonInfo { buttonText = "Sounds", method = () => currentCategory = 12, isTogglable = false },
             },
 
-            new ButtonInfo[] { // Settings [1]
-                //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
+            new ButtonInfo[] { // Settings [1] 
                 new ButtonInfo { buttonText = "Menu", method = () => currentCategory = 2, isTogglable = false },
-                new ButtonInfo { buttonText = "GunLib", method = () => currentCategory = 15, isTogglable = false },
+                new ButtonInfo { buttonText = "GunLib", method = () => currentCategory = 13, isTogglable = false },
                 new ButtonInfo { buttonText = "Movement", method = () => currentCategory = 3, isTogglable = false },
             },
-            
+
             new ButtonInfo[] { // Menu Settings [2]
-                //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
                 new ButtonInfo { buttonText = "Right Hand", enableMethod = () => rightHanded = true, disableMethod = () => rightHanded = false },
                 new ButtonInfo { buttonText = "Notifications", enableMethod = () => disableNotifications = false, disableMethod = () => disableNotifications = true, enabled = !disableNotifications },
                 new ButtonInfo { buttonText = "FPS Counter", enableMethod = () => fpsCounter = true, disableMethod = () => fpsCounter = false, enabled = fpsCounter },
                 new ButtonInfo { buttonText = "Disconnect Button", enableMethod = () => disconnectButton = true, disableMethod = () => disconnectButton = false, enabled = disconnectButton },
-                new ButtonInfo { buttonText = "Stump Text", method = () => StumpText.Stumpy(), disableMethod = () => StumpText.STUMPY_DESTROY() ,isTogglable = true, enabled = true},
             },
 
             new ButtonInfo[] { // Movement Settings [3]
-                
-                //new ButtonInfo { buttonText = "Return to Settings", method = () => currentCategory = 1, isTogglable = false },
-                //new ButtonInfo { buttonText = "Change Fly Speed", method = () => Mods.Settings.Movement.ChangeFlySpeed(), isTogglable = false },
+                // Add movement settings here if needed
             },
 
             new ButtonInfo[] { // Enabled Mods [4]
-                //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
+                // This category will be populated dynamically
             },
 
             new ButtonInfo[] { // Room Mods [5]
-                //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
                 new ButtonInfo { buttonText = "join random lobby", method = () => Mods.Movement.JoinRandom(), isTogglable = false },
                 new ButtonInfo { buttonText = "Disconnect", method = () => NetworkSystem.Instance.ReturnToSinglePlayer(), isTogglable = false },
                 new ButtonInfo { buttonText = "LT DISCONNECT", method = () => Mods.Movement.LTdisconnet() },
@@ -147,12 +123,10 @@ namespace liquidclient.Menu
             },
 
             new ButtonInfo[] { // Movement Mods [6]
-                //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
                 new ButtonInfo { buttonText = "Platforms", method = () => Movement.PlatformModbysigmaboy() },
                 new ButtonInfo { buttonText = "Sticky Platforms", method = () => Movement.StickyPlatforms() },
                 new ButtonInfo { buttonText = "Frozone", method = () => Movement.Frozone() },
                 new ButtonInfo { buttonText = "Fly", method = () => Movement.Fly() },
-                //new ButtonInfo { buttonText = "Teleport Gun", method = () => Movement.TeleportGun() },
                 new ButtonInfo { buttonText = "Speedboost", method = () => Movement.speedboost() },
                 new ButtonInfo { buttonText = "Checkpoint", method = () => Checkpoint(), disableMethod = () => GameObject.Destroy(CheckPoint), isTogglable = true },
                 new ButtonInfo { buttonText = "WASD Fly", method = () => WASDFLY.WASDFly(), isTogglable = true },
@@ -168,32 +142,20 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "fast trigger fly", method = () => Movement.fasttriggerFly() },
                 new ButtonInfo { buttonText = "Slingshot Fly", method = () => Movement.Slingshotfly(false) },
                 new ButtonInfo { buttonText = "Zero Slingshot Fly", method = () => Movement.Slingshotfly(true) },
-                //new ButtonInfo { buttonText = "invs monke", method = () => Movement.Invismonk() },
-                //new ButtonInfo { buttonText = "Long Arms", method = () => Movement.Longarms(11f), toolTip = "Makes Your Arms Longer!" },
-
                 new ButtonInfo { buttonText = "Bird Fly", method = Movement.BirdFly, toolTip = "Makes you fly like a bird when you flap your wings."},
-                //new ButtonInfo { buttonText = "Iron Monke", method = () => IronMan(), isTogglable = true },
-                
-                //new ButtonInfo { buttonText = "Solid Water", aliases = new[] { "Jesus" }, enableMethod = Movement.SolidWater, disableMethod = Movement.FixWater, toolTip = "Makes the water solid in the beach map." },
-                //new ButtonInfo { buttonText = "Disable Water", enableMethod = Movement.DisableWater, disableMethod = Movement.FixWater, toolTip = "Disables the water in the beach map." },
-                //new ButtonInfo { buttonText = "Air Swim", aliases = new[] { "Fish" }, method = Movement.AirSwim, disableMethod = Movement.DisableAirSwim, toolTip = "Puts you in a block of water, letting you swim in the air." },
-                //new ButtonInfo { buttonText = "Fast Swim", method =() => Movement.SetSwimSpeed(10f), disableMethod =() => Movement.SetSwimSpeed(), toolTip = "Lets you swim faster in water." },
-                //new ButtonInfo { buttonText = "Water Run Helper", overlapText = "Water Run", enableMethod =() => Movement.WaterRunHelper(true), disableMethod =() => Movement.WaterRunHelper(false), toolTip = "Adds back water running to the game." },
             },
 
             new ButtonInfo[] { // Safety Mods [7]
-                //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
                 new ButtonInfo { buttonText = "Anti Report", method = () => Safety.AntiReportDisconnect() },
                 new ButtonInfo { buttonText = "Visualize Anti Report", method = Safety.VisualizeAntiReport, toolTip = "Visualizes the distance threshold for the anti report mods."},
-                //new ButtonInfo { buttonText = "Anti Report Join Random", method = () => Safety.AntiReportJoinRand() },
                 new ButtonInfo { buttonText = "Flush Rpcs Dont Spam", method = () => Movement.FlushRPCs(), isTogglable = false },
                 new ButtonInfo { buttonText = "Auto Clear Cache", method = Safety.AutoClearCache, toolTip = "Automatically clears your game's cache (garbage collector) every minute to prevent memory leaks."},
                 new ButtonInfo { buttonText = "Disable Fingers", method = () => Movement.DisableFingers(), toolTip = "Good for plats"},
+                new ButtonInfo { buttonText = "Panic(RG)", method = () => Movement.RightgripPanic(), toolTip = "Turns off all of the mods when holding right grip."},
                 new ButtonInfo { buttonText = "Panic", method = () => Movement.Panic(), isTogglable = false, toolTip = "Turns off all of the mods."},
             },
 
             new ButtonInfo[] { // Game Mods [8]
-                //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
                 new ButtonInfo { buttonText = "PC Button Click", method = Important.PCButtonClick, disableMethod = Important.DisablePCButtonClick },
                 new ButtonInfo { buttonText = "First Person Camera", enableMethod = Important.EnableFPC, method = Important.MoveFPC, disableMethod = Important.DisableFPC },
                 new ButtonInfo { buttonText = "Get ID Self", method = Important.CopySelfID, isTogglable = false, toolTip = "Gets your player ID and copies it to the clipboard."},
@@ -208,10 +170,13 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "20 FPS", method = () => Mods.Movement.Tfps(), disableMethod = Movement.FixFPS },
                 new ButtonInfo { buttonText = "5 FPS", method = () => Mods.Movement.ffps(), disableMethod = Movement.FixFPS },
                 new ButtonInfo { buttonText = "Fps Boost", method = () => Mods.Movement.FPSBoostIndev() },
+                new ButtonInfo { buttonText = "Join Code Mods", method = () => Joincode("MODS"), isTogglable = false},
+                new ButtonInfo { buttonText = "Join Code 459", method = () => Joincode("459"), isTogglable = false},
+                new ButtonInfo { buttonText = "Join Code Mod", method = () => Joincode("MOD"), isTogglable = false},
+                new ButtonInfo { buttonText = "Join Code PBBV", method = () => Joincode("PBBV"), isTogglable = false},
             },
 
             new ButtonInfo[] { // Visual Mods [9]
-                //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
                 new ButtonInfo { buttonText = "Tracers", method = () => Movement.Tracer() },
                 new ButtonInfo { buttonText = "Beacons", method = () => Movement.beacons() },
                 new ButtonInfo { buttonText = "Cubes", method = () => Movement.Box_ESP() },
@@ -221,7 +186,6 @@ namespace liquidclient.Menu
             },
 
             new ButtonInfo[] { // Fun Mods [10]
-                //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
                 new ButtonInfo { buttonText = "Fix Rig", method = () => Movement.FixRig(), isTogglable = false},
                 new ButtonInfo { buttonText = "Spaz Head", method = () => Movement.SpazHead()},
                 new ButtonInfo { buttonText = "Bounce", method = () => Movement.Bouncy(), disableMethod = Movement.ResetBouncy },
@@ -231,111 +195,60 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Rainbow Bracelet", enableMethod = () => Movement.RainbowBracelet(), disableMethod = () => Movement.disableRainbowBracelet() },
                 new ButtonInfo { buttonText = "Set Quest Score To 100k", method = () => Movement.addqueststuff(100000), disableMethod = () => Mods.Movement.Resetqueststuff() },
                 new ButtonInfo { buttonText = "Spawn Hoverboard", method = Movement.SpawnHowerdBoard, disableMethod = Movement.DisableHoverboard, toolTip = "Gives you the hoverboard no matter where you are."},
-               // new ButtonInfo { buttonText = "Copy Gun", method = () => Movement.Copygun(), toolTip = "Lock on to a player to copy them!"}
-               new ButtonInfo { buttonText = "Zero Gravity(CS)", method = () => Gravityhelper(true)},
-               new ButtonInfo { buttonText = "High Gravity(CS)", method = () => Gravityhelper(false)},
-               //new ButtonInfo { buttonText = "Fast Hoverboard", method = () => Movement.Fasthoverboarderr()},
-               //new ButtonInfo { buttonText = "Fling on grab(OP)", method = () => Movement.Flingongrab(100f)},
-            },
-
-            new ButtonInfo[] { // OP Mods [11]
-                //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
-                new ButtonInfo { buttonText = "Ghost Money", method = () => Movement.AddCurrencySelf() },
-                new ButtonInfo { buttonText = "Lag server", method = () => Movement.LagServer(), toolTip = "Lags the server"},
-                
-                
-                //new ButtonInfo { buttonText = "Unlock VIM door", method = () => Movement.Disablesubdoor(), isTogglable = false },
-                new ButtonInfo { buttonText = "Flash Gray Screen", method = () => Movement.FlashGrayScreenSSAll(), isTogglable = true },
-                new ButtonInfo { buttonText = "Gray Screen/No gravity(SS)(M)", enableMethod = () => Movement.GrayScreenThing(true), disableMethod  = () => Movement.GrayScreenThing(false)},
-                new ButtonInfo { buttonText = "Guardian Self(SS)(M)", enableMethod = () => Guardianhelper(true, false), disableMethod = () => Guardianhelper(false, false), toolTip = "Makes you guardian"},
-                new ButtonInfo { buttonText = "Guardian All(SS)(M)", enableMethod = () => Guardianhelper(false, true), disableMethod = () => Guardianhelper(false, false), toolTip = "Makes you guardian"},
-            },
-
-            new ButtonInfo[] { // Sounds [12]s
-                new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
-                new ButtonInfo { buttonText = "Soon", method = () => currentCategory = 0, isTogglable = false},
-                //new ButtonInfo { buttonText = "Crystal sound spam", method = () => Movement.CrystalSoundSpam() },
-                //new ButtonInfo { buttonText = "Squeak sound spam", method = () => Movement.SqueakSoundSpam() },
-                //new ButtonInfo { buttonText = "Siren sound spam", method = () => Movement.SirenSoundSpam() },
-            },
-
-            new ButtonInfo[] { // Admin Mods [13]
-                new ButtonInfo { buttonText = "Roblox Sword", method = () => AdminTest.somethingidk(), disableMethod = () => AdminTest.destroysomethingidk(), isTogglable = true },
-                new ButtonInfo { buttonText = "Cucaracha", method = () => AdminTest.Cucaracha2(), disableMethod = () => AdminTest.destroyCucaracha2(), isTogglable = true, toolTip = ""},
-                new ButtonInfo { buttonText = "Block", enableMethod =() => AdminTest.blcok(), disableMethod =() => AdminTest.destroyBlock(), isTogglable = true, toolTip = "Spawns a block cuz why not"},
-                new ButtonInfo { buttonText = "Menu User Name Tags", enableMethod = AdminTest.EnableAdminMenuUserTags, method = AdminTest.UpdateNameTagPositions, disableMethod = AdminTest.DisableAdminMenuUserTags, adminOnly = true, toolTip = "Puts nametags on menu users.", isTogglable = true},
-                new ButtonInfo { buttonText = "Unlock All Cosmetics", method = Important.UnlockAllCosmetics, toolTip = "Unlocks every cosmetic in the game. This mod is client-sided." },
-                new ButtonInfo { buttonText = "Admin Levitate All", method = Admin.FlyAllUsing, adminOnly = true },
-                new ButtonInfo { buttonText = "GetMenuUsers", method = Admin.GetMenuUsers, isTogglable = false, adminOnly = true },
-                new ButtonInfo { buttonText = "Send message to all", method = Admin.sigmaboy, isTogglable = false, adminOnly = true },
-                new ButtonInfo { buttonText = "Admin Laser", method = Admin.laser, adminOnly = true },
-                //new ButtonInfo { buttonText = "Menu User Name Tags", enableMethod = AdminTest.EnableAdminMenuUserTags, method = AdminTest.UpdateNameTagPositions, disableMethod = AdminTest.DisableAdminMenuUserTags, toolTip = "Puts nametags on menu users."},
-                new ButtonInfo { buttonText = "Menu User Tracers", enableMethod = Admin.EnableAdminMenuUserTracers, method = Admin.MenuUserTracers, disableMethod =() => {Admin.isLineRenderQueued = true;}, toolTip = "Puts tracers on your right hand to menu users.", isTogglable = true},
-            },
-
-            new ButtonInfo[] { // SuperAdmin Mods [14]
-                //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
-                new ButtonInfo { buttonText = "Admin Kick Gun", method = Admin.AdminKickGun, adminOnly = true, isTogglable = true},
-                new ButtonInfo { buttonText = "Admin Kick All", method = Admin.KickAll, isTogglable = false, adminOnly = true },
-                new ButtonInfo { buttonText = "Admin Bring All", method = Admin.BringAllUsing, adminOnly = true },
-                new ButtonInfo { buttonText = "Admin Bring Gun", method = Admin.AdminBringGun, adminOnly = true },
-                new ButtonInfo { buttonText = "Admin Bouncy All", method = Admin.BouncyAllUsing, adminOnly = true },
-                new ButtonInfo { buttonText = "Admin Levitate All", method = Admin.FlyAllUsing, adminOnly = true },
-                new ButtonInfo { buttonText = "GetMenuUsers", method = Admin.GetMenuUsers, isTogglable = false, adminOnly = true },
-                new ButtonInfo { buttonText = "Send message to all", method = Admin.sigmaboy, isTogglable = false, adminOnly = true },
-                new ButtonInfo { buttonText = "Admin Laser", method = Admin.laser, adminOnly = true },
-                new ButtonInfo { buttonText = "Menu User Name Tags", enableMethod = AdminTest.EnableAdminMenuUserTags, method = AdminTest.UpdateNameTagPositions, disableMethod = AdminTest.DisableAdminMenuUserTags, toolTip = "Puts nametags on menu users.", isTogglable = true},
-                new ButtonInfo { buttonText = "Menu User Tracers", enableMethod = Admin.EnableAdminMenuUserTracers, method = Admin.MenuUserTracers, disableMethod =() => {Admin.isLineRenderQueued = true;}, toolTip = "Puts tracers on your right hand to menu users.", isTogglable = true},
-                
-                //new ButtonInfo { buttonText = "Admin Laser", method = Important.ConsoleBeacon(), adminOnly = true },
-                new ButtonInfo { buttonText = "Admin Fake Cosmetics", overlapText = "Admin Spoof Cosmetics", method =() => Admin.AdminSpoofCosmetics(), enableMethod =() => { NetworkSystem.Instance.OnPlayerJoined += Admin.OnPlayerJoinSpoof; Admin.AdminSpoofCosmetics(true); }, disableMethod =() => { NetworkSystem.Instance.OnPlayerJoined -= Admin.OnPlayerJoinSpoof; Admin.oldCosmetics = null; }, toolTip = "Makes everyone using the menu see whatever cosmetics you have on as if you owned them."},
-                new ButtonInfo { buttonText = "Unlock All Cosmetics", method = Important.UnlockAllCosmetics, toolTip = "Unlocks every cosmetic in the game. This mod is mod-sided." },
-                new ButtonInfo { buttonText = "Admin Strangle", method = Admin.AdminStrangle, toolTip = "Strangles whoever you grab if they're using the menu."},
-                
-                new ButtonInfo { buttonText = "Admin Jumpscare All", method = Admin.AdminJumpscareAll, isTogglable = false, toolTip = "Jumpscares everyone using the menu."},
-                new ButtonInfo { buttonText = "Admin Fractals <color=grey>[</color><color=green>T</color><color=grey>]</color>", method = Admin.AdminFractals, toolTip = "Shines white lines out of your body when holding <color=green>trigger</color>."},
+                new ButtonInfo { buttonText = "Zero Gravity(CS)", method = () => Gravityhelper(true)},
+                new ButtonInfo { buttonText = "High Gravity(CS)", method = () => Gravityhelper(false)},
+                new ButtonInfo { buttonText = "Rainbow Hoverboard", method = () => HoverboardColor(Color.black, true)},
+                new ButtonInfo { buttonText = "Navy Blue Color Hoverboard", method = () => HoverboardColor(Color.navyBlue, false)},
             },
             
-            new ButtonInfo[] { // GunLib Settings [15]
-                //new ButtonInfo { buttonText = "Return to Settings", method = () => currentCategory = 1, isTogglable = false },
+            new ButtonInfo[] { // OP Mods [11]-
+                new ButtonInfo { buttonText = "Ghost Money", method = () => Movement.AddCurrencySelf() },
+                new ButtonInfo { buttonText = "Lag server", method = () => Movement.LagServer(23), toolTip = "Lags the server"},
+                new ButtonInfo { buttonText = "Freeze server", method = () => Movement.LagServer(149), toolTip = "Freezes the server"},
+                new ButtonInfo { buttonText = "Lag Server 2", method = () => Movement.LagServer(10), toolTip = "Lags the server"},
+                new ButtonInfo { buttonText = "Light Lag Server", method = () => Movement.LagServer(51), toolTip = "Lags the server"},
+                new ButtonInfo { buttonText = "Flash Gray Screen", method = () => Movement.FlashGrayScreenSSAll(), isTogglable = true },
+                new ButtonInfo { buttonText = "Gray Screen/No gravity(SS)(M)", enableMethod = () => Movement.GrayScreenThing(true), disableMethod  = () => Movement.GrayScreenThing(false)},
+                new ButtonInfo { buttonText = "Guardian Self(SS)(M)", enableMethod = () => Guardianhelper(true, false, false), disableMethod = () => Guardianhelper(false, false, false), toolTip = "Makes you guardian"},
+                new ButtonInfo { buttonText = "Guardian All(SS)(M)", enableMethod = () => Guardianhelper(false, true, false), disableMethod = () => Guardianhelper(false, false, false), toolTip = "Makes everyone guardian"},
+                new ButtonInfo { buttonText = "Guardian Others(SS)(M)", enableMethod = () => Guardianhelper(false, false, true), disableMethod = () => Guardianhelper(false, false, false), toolTip = "Makes everyone guardian"},
+            },
+
+            new ButtonInfo[] { // Sounds [12]
+                new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
+                new ButtonInfo { buttonText = "Soon", method = () => currentCategory = 0, isTogglable = false},
+            },
+
+            new ButtonInfo[] { // GunLib Settings [13]
                 new ButtonInfo { buttonText = "Test Gun", method = () => Important.TestGun(), isTogglable = true },
-                
+
                 new ButtonInfo { buttonText = "Style: " + GunLibTEst.AthrionGunLibrary.currentLineStyle, isTogglable = false, method = null },
                 new ButtonInfo { buttonText = "Next Style →", method = () => GunLibTEst.AthrionGunLibrary.ChangeGunStyle(true), isTogglable = false },
                 new ButtonInfo { buttonText = "← Prev Style", method = () => GunLibTEst.AthrionGunLibrary.ChangeGunStyle(false), isTogglable = false },
-                
+
                 new ButtonInfo { buttonText = "Line Size: " + GunLibTEst.AthrionGunLibrary.GunLineWidth.ToString("F3"), isTogglable = false, method = null },
                 new ButtonInfo { buttonText = "Increase Line", method = () => GunLibTEst.AthrionGunLibrary.ChangeGunLineSize(true), isTogglable = false },
                 new ButtonInfo { buttonText = "Decrease Line", method = () => GunLibTEst.AthrionGunLibrary.ChangeGunLineSize(false), isTogglable = false },
-                
+
                 new ButtonInfo { buttonText = "Sphere Size: " + GunLibTEst.AthrionGunLibrary.SphereSize.ToString("F2"), isTogglable = false, method = null },
                 new ButtonInfo { buttonText = "Increase Sphere", method = () => GunLibTEst.AthrionGunLibrary.ChangeGunSphereScale(true), isTogglable = false },
                 new ButtonInfo { buttonText = "Decrease Sphere", method = () => GunLibTEst.AthrionGunLibrary.ChangeGunSphereScale(false), isTogglable = false },
-                
+
                 new ButtonInfo { buttonText = "Wave Freq: " + GunLibTEst.AthrionGunLibrary.GunConfig.WaveFrequency.ToString("F1"), isTogglable = false, method = null },
                 new ButtonInfo { buttonText = "Increase Freq", method = () => GunLibTEst.AthrionGunLibrary.ChangeWaveFrequency(true), isTogglable = false },
                 new ButtonInfo { buttonText = "Decrease Freq", method = () => GunLibTEst.AthrionGunLibrary.ChangeWaveFrequency(false), isTogglable = false },
                 new ButtonInfo { buttonText = "Wave Amp: " + GunLibTEst.AthrionGunLibrary.GunConfig.WaveAmplitude.ToString("F3"), isTogglable = false, method = null },
                 new ButtonInfo { buttonText = "Increase Amp", method = () => GunLibTEst.AthrionGunLibrary.ChangeWaveAmplitude(true), isTogglable = false },
                 new ButtonInfo { buttonText = "Decrease Amp", method = () => GunLibTEst.AthrionGunLibrary.ChangeWaveAmplitude(false), isTogglable = false },
-                
+
                 new ButtonInfo { buttonText = "Particles", enableMethod = () => GunLibTEst.AthrionGunLibrary.GunConfig.EnableParticles = true, disableMethod = () => GunLibTEst.AthrionGunLibrary.ToggleParticles(), enabled = GunLibTEst.AthrionGunLibrary.GunConfig.EnableParticles },
                 new ButtonInfo { buttonText = "Box ESP", enableMethod = () => GunLibTEst.AthrionGunLibrary.GunConfig.EnableBoxESP = true, disableMethod = () => GunLibTEst.AthrionGunLibrary.GunConfig.EnableBoxESP = false, enabled = GunLibTEst.AthrionGunLibrary.GunConfig.EnableBoxESP },
                 new ButtonInfo { buttonText = "Animations", enableMethod = () => GunLibTEst.AthrionGunLibrary.GunConfig.EnableAnimations = true, disableMethod = () => GunLibTEst.AthrionGunLibrary.GunConfig.EnableAnimations = false, enabled = GunLibTEst.AthrionGunLibrary.GunConfig.EnableAnimations },
             },
-            
-            new ButtonInfo[] { // TagMods Category [16]
-                //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
+
+            new ButtonInfo[] { // TagMods Category [14]
                 new ButtonInfo { buttonText = "Tag All", method = () => Movement.tg() },
                 new ButtonInfo { buttonText = "Tag Gun", method = () => Important.TagGun() },
-                //new ButtonInfo { buttonText = "Tag Self", method = () => OverPowred.TagSelf() },
-            },
-            
-            new ButtonInfo[] { // Owner Category [17]
-                //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
-                new ButtonInfo { buttonText = "Tag All", method = () => Movement.tg() },
-                new ButtonInfo { buttonText = "Tag Gun", method = () => Important.TagGun() },
-                new ButtonInfo { buttonText = "Tag Self", method = () => OverPowred.TagSelf() },
             },
         };
     }
