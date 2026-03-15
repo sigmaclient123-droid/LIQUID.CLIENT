@@ -100,6 +100,7 @@ namespace liquidclient.Menu
         {
             new ButtonInfo[] { // Main Mods [0]
                 new ButtonInfo { buttonText = "Enabled Mods", method =() => currentCategory = 4, isTogglable = false },
+                new ButtonInfo { buttonText = "Join Discord", method = () => Movement.Joindadiscord(), isTogglable = false },
                 new ButtonInfo { buttonText = "Room Mods", method = () => currentCategory = 5, isTogglable = false },
                 new ButtonInfo { buttonText = "Movement Mods", method = () => currentCategory = 6, isTogglable = false },
                 new ButtonInfo { buttonText = "Safety Mods", method = () => currentCategory = 7, isTogglable = false },
