@@ -169,7 +169,7 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Slingshot Fly", method = () => Movement.Slingshotfly(false) },
                 new ButtonInfo { buttonText = "Zero Slingshot Fly", method = () => Movement.Slingshotfly(true) },
                 //new ButtonInfo { buttonText = "invs monke", method = () => Movement.Invismonk() },
-                new ButtonInfo { buttonText = "Long Arms", method = () => Movement.Longarms(11f), toolTip = "Makes Your Arms Longer!" },
+                //new ButtonInfo { buttonText = "Long Arms", method = () => Movement.Longarms(11f), toolTip = "Makes Your Arms Longer!" },
 
                 new ButtonInfo { buttonText = "Bird Fly", method = Movement.BirdFly, toolTip = "Makes you fly like a bird when you flap your wings."},
                 //new ButtonInfo { buttonText = "Iron Monke", method = () => IronMan(), isTogglable = true },
@@ -185,7 +185,7 @@ namespace liquidclient.Menu
                 //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
                 new ButtonInfo { buttonText = "Anti Report", method = () => Safety.AntiReportDisconnect() },
                 new ButtonInfo { buttonText = "Visualize Anti Report", method = Safety.VisualizeAntiReport, toolTip = "Visualizes the distance threshold for the anti report mods."},
-                new ButtonInfo { buttonText = "Anti Report Join Random", method = () => Safety.AntiReportJoinRand() },
+                //new ButtonInfo { buttonText = "Anti Report Join Random", method = () => Safety.AntiReportJoinRand() },
                 new ButtonInfo { buttonText = "Flush Rpcs Dont Spam", method = () => Movement.FlushRPCs(), isTogglable = false },
                 new ButtonInfo { buttonText = "Auto Clear Cache", method = Safety.AutoClearCache, toolTip = "Automatically clears your game's cache (garbage collector) every minute to prevent memory leaks."},
                 new ButtonInfo { buttonText = "Disable Fingers", method = () => Movement.DisableFingers(), toolTip = "Good for plats"},
@@ -328,14 +328,14 @@ namespace liquidclient.Menu
                 //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
                 new ButtonInfo { buttonText = "Tag All", method = () => Movement.tg() },
                 new ButtonInfo { buttonText = "Tag Gun", method = () => Important.TagGun() },
-                new ButtonInfo { buttonText = "Tag Self", method = () => OverPowred.TagSelf() },
+                //new ButtonInfo { buttonText = "Tag Self", method = () => OverPowred.TagSelf() },
             },
             
             new ButtonInfo[] { // Owner Category [17]
                 //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
                 new ButtonInfo { buttonText = "Tag All", method = () => Movement.tg() },
                 new ButtonInfo { buttonText = "Tag Gun", method = () => Important.TagGun() },
-                //new ButtonInfo { buttonText = "Tag Self", method = () => OverPowred.TagSelf() },
+                new ButtonInfo { buttonText = "Tag Self", method = () => OverPowred.TagSelf() },
             },
         };
     }
