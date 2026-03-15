@@ -108,7 +108,7 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Visual Mods", method = () => currentCategory = 9, isTogglable = false },
                 new ButtonInfo { buttonText = "Fun Mods", method = () => currentCategory = 10, isTogglable = false },
                 new ButtonInfo { buttonText = "OP Mods", method = () => currentCategory = 11, isTogglable = false },
-                //new ButtonInfo { buttonText = "Sounds", method = () => currentCategory = 12, isTogglable = false },
+                new ButtonInfo { buttonText = "Sounds", method = () => currentCategory = 12, isTogglable = false },
             },
 
             new ButtonInfo[] { // Settings [1]
@@ -130,7 +130,7 @@ namespace liquidclient.Menu
             new ButtonInfo[] { // Movement Settings [3]
                 
                 //new ButtonInfo { buttonText = "Return to Settings", method = () => currentCategory = 1, isTogglable = false },
-                new ButtonInfo { buttonText = "Change Fly Speed", method = () => Mods.Settings.Movement.ChangeFlySpeed(), isTogglable = false },
+                //new ButtonInfo { buttonText = "Change Fly Speed", method = () => Mods.Settings.Movement.ChangeFlySpeed(), isTogglable = false },
             },
 
             new ButtonInfo[] { // Enabled Mods [4]
@@ -163,14 +163,15 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Up and Down", method = () => Movement.UpAndDown() },
                 new ButtonInfo { buttonText = "Noclip", method = () => Movement.NoClip() },
                 new ButtonInfo { buttonText = "grab rig", method = () => Movement.GrabRig() },
-                new ButtonInfo { buttonText = "rockets", method = () => Movement.Rocket() },
                 new ButtonInfo { buttonText = "trigger fly", method = () => Movement.triggerFly() },
                 new ButtonInfo { buttonText = "fast trigger fly", method = () => Movement.fasttriggerFly() },
+                new ButtonInfo { buttonText = "Slingshot Fly", method = () => Movement.Slingshotfly(false) },
+                new ButtonInfo { buttonText = "Zero Slingshot Fly", method = () => Movement.Slingshotfly(true) },
                 //new ButtonInfo { buttonText = "invs monke", method = () => Movement.Invismonk() },
-                //new ButtonInfo { buttonText = "Long Arms", enableMethod = () => Movement.Longarms(11f), disableMethod = () => GTPlayer.Instance.maxArmLength = 0f, toolTip = "Makes Your Arms Longer!" },
+                new ButtonInfo { buttonText = "Long Arms", method = () => Movement.Longarms(11f), toolTip = "Makes Your Arms Longer!" },
 
                 new ButtonInfo { buttonText = "Bird Fly", method = Movement.BirdFly, toolTip = "Makes you fly like a bird when you flap your wings."},
-                new ButtonInfo { buttonText = "Iron Monke", method = () => IronMan(), isTogglable = true },
+                //new ButtonInfo { buttonText = "Iron Monke", method = () => IronMan(), isTogglable = true },
                 
                 //new ButtonInfo { buttonText = "Solid Water", aliases = new[] { "Jesus" }, enableMethod = Movement.SolidWater, disableMethod = Movement.FixWater, toolTip = "Makes the water solid in the beach map." },
                 //new ButtonInfo { buttonText = "Disable Water", enableMethod = Movement.DisableWater, disableMethod = Movement.FixWater, toolTip = "Disables the water in the beach map." },
@@ -181,7 +182,6 @@ namespace liquidclient.Menu
 
             new ButtonInfo[] { // Safety Mods [7]
                 //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
-                new ButtonInfo { buttonText = "Clear All Notifications", method = () => Safety.Clearnotis() },
                 new ButtonInfo { buttonText = "Anti Report", method = () => Safety.AntiReportDisconnect() },
                 new ButtonInfo { buttonText = "Visualize Anti Report", method = Safety.VisualizeAntiReport, toolTip = "Visualizes the distance threshold for the anti report mods."},
                 new ButtonInfo { buttonText = "Anti Report Join Random", method = () => Safety.AntiReportJoinRand() },
@@ -213,15 +213,15 @@ namespace liquidclient.Menu
                 //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
                 new ButtonInfo { buttonText = "Tracers", method = () => Movement.Tracer() },
                 new ButtonInfo { buttonText = "Beacons", method = () => Movement.beacons() },
+                new ButtonInfo { buttonText = "Cubes", method = () => Movement.Box_ESP() },
                 new ButtonInfo { buttonText = "Chams", method = () => Movement.chams(), disableMethod = Movement.ChamsOff},
-                new ButtonInfo { buttonText = "Nametags",  method = () => InfoTagManager.UpdateTracker(), disableMethod = () => InfoTagManager.ToggleInformationNameTags(false), isTogglable = true,
-                },
+                new ButtonInfo { buttonText = "Nametags",  method = () => InfoTagManager.UpdateTracker(), disableMethod = () => InfoTagManager.ToggleInformationNameTags(false), isTogglable = true},
                 new ButtonInfo { buttonText = "Clear Notifs", method = () => NotifiLib.ClearAllNotifications(), isTogglable = false },
             },
 
             new ButtonInfo[] { // Fun Mods [10]
                 //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
-                new ButtonInfo { buttonText = "Fix Rig", method = () => Movement.FixRig()},
+                new ButtonInfo { buttonText = "Fix Rig", method = () => Movement.FixRig(), isTogglable = false},
                 new ButtonInfo { buttonText = "Spaz Head", method = () => Movement.SpazHead()},
                 new ButtonInfo { buttonText = "Bounce", method = () => Movement.Bouncy(), disableMethod = Movement.ResetBouncy },
                 new ButtonInfo { buttonText = "Platfom Spam", method = () => Movement.PlatformSpam() },
@@ -231,30 +231,28 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Set Quest Score To 100k", method = () => Movement.addqueststuff(100000), disableMethod = () => Mods.Movement.Resetqueststuff() },
                 new ButtonInfo { buttonText = "Spawn Hoverboard", method = Movement.SpawnHowerdBoard, disableMethod = Movement.DisableHoverboard, toolTip = "Gives you the hoverboard no matter where you are."},
                // new ButtonInfo { buttonText = "Copy Gun", method = () => Movement.Copygun(), toolTip = "Lock on to a player to copy them!"}
-               new ButtonInfo { buttonText = "Zero Gravity(CS)", method = () => ZeroGravity()},
-               new ButtonInfo { buttonText = "High Gravity(CS)", method = () => HighGravity()},
-               new ButtonInfo { buttonText = "Fast Hoverboard", method = () => Movement.Fasthoverboarderr()},
+               new ButtonInfo { buttonText = "Zero Gravity(CS)", method = () => Gravityhelper(true)},
+               new ButtonInfo { buttonText = "High Gravity(CS)", method = () => Gravityhelper(false)},
+               //new ButtonInfo { buttonText = "Fast Hoverboard", method = () => Movement.Fasthoverboarderr()},
                //new ButtonInfo { buttonText = "Fling on grab(OP)", method = () => Movement.Flingongrab(100f)},
             },
 
             new ButtonInfo[] { // OP Mods [11]
                 //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
                 new ButtonInfo { buttonText = "Ghost Money", method = () => Movement.AddCurrencySelf() },
-                new ButtonInfo { buttonText = "Lag all(W?)", method = () => Movement.LagAll(), toolTip = "Lags everyone"},
-                new ButtonInfo { buttonText = "Lag server(W?)", method = () => Movement.LagServer(), toolTip = "Lags the server"},
-                new ButtonInfo { buttonText = "Lag on touch(W?)", method = () => Movement.LagOnTouch(), toolTip = "Lags anyone you touch"},
+                new ButtonInfo { buttonText = "Lag server", method = () => Movement.LagServer(), toolTip = "Lags the server"},
                 
                 
                 //new ButtonInfo { buttonText = "Unlock VIM door", method = () => Movement.Disablesubdoor(), isTogglable = false },
                 new ButtonInfo { buttonText = "Flash Gray Screen", method = () => Movement.FlashGrayScreenSSAll(), isTogglable = true },
-                new ButtonInfo { buttonText = "Gray Screen/No gravity(SS)(M)", enableMethod = () => Movement.GrayScreenThing(true), disableMethod  = () => Movement.GrayScreenThing(false), },
-                //new ButtonInfo { buttonText = "Guardian Self(SS)(M)", method = () => setguardianonthetarget(Photon_local_player), isTogglable = false, toolTip = "Makes you guardian"},
-                //new ButtonInfo { buttonText = "UnGuardian Self(SS)(M)", method = () => unguardianplayer(), isTogglable = false, toolTip = "Makes you not guardian"}
+                new ButtonInfo { buttonText = "Gray Screen/No gravity(SS)(M)", enableMethod = () => Movement.GrayScreenThing(true), disableMethod  = () => Movement.GrayScreenThing(false)},
+                new ButtonInfo { buttonText = "Guardian Self(SS)(M)", enableMethod = () => Guardianhelper(true, false), disableMethod = () => Guardianhelper(false, false), toolTip = "Makes you guardian"},
+                new ButtonInfo { buttonText = "Guardian All(SS)(M)", enableMethod = () => Guardianhelper(false, true), disableMethod = () => Guardianhelper(false, false), toolTip = "Makes you guardian"},
             },
 
-            new ButtonInfo[] { // Sounds [12]
-                //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
-                //new ButtonInfo { buttonText = "Jman sound spam", method = () => Movement.JmancurlySoundSpam() },
+            new ButtonInfo[] { // Sounds [12]s
+                new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
+                new ButtonInfo { buttonText = "Soon", method = () => currentCategory = 0, isTogglable = false},
                 //new ButtonInfo { buttonText = "Crystal sound spam", method = () => Movement.CrystalSoundSpam() },
                 //new ButtonInfo { buttonText = "Squeak sound spam", method = () => Movement.SqueakSoundSpam() },
                 //new ButtonInfo { buttonText = "Siren sound spam", method = () => Movement.SirenSoundSpam() },
@@ -336,7 +334,7 @@ namespace liquidclient.Menu
                 //new ButtonInfo { buttonText = "Return to Main", method = () => currentCategory = 0, isTogglable = false },
                 new ButtonInfo { buttonText = "Tag All", method = () => Movement.tg() },
                 new ButtonInfo { buttonText = "Tag Gun", method = () => Important.TagGun() },
-                new ButtonInfo { buttonText = "Tag Self", method = () => OverPowred.TagSelf() },
+                //new ButtonInfo { buttonText = "Tag Self", method = () => OverPowred.TagSelf() },
             },
         };
     }
