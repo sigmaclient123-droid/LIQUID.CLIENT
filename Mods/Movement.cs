@@ -1,5 +1,6 @@
 using BepInEx;
 using ExitGames.Client.Photon;
+using Fusion;
 using GorillaGameModes;
 using GorillaLocomotion;
 using GorillaLocomotion.Gameplay;
@@ -22,6 +23,7 @@ using Photon.Voice.PUN;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using TMPro;
 using UnityEngine;
@@ -43,6 +45,7 @@ namespace liquidclient.Mods
         public static NetPlayer Network_local_player = NetworkSystem.Instance.LocalPlayer;
         public static VRRig Rig = GorillaTagger.Instance.offlineVRRig;
         public static Rigidbody Rig_Rigidbody = GorillaTagger.Instance.rigidbody;
+        public static VRRig Vrrig = VRRig.LocalRig;
         // Guardian Varibles
         public static GorillaGuardianManager GuardianManager = (GorillaGuardianManager)GorillaGameManager.instance;
         public static void Fly()
@@ -92,13 +95,8 @@ namespace liquidclient.Mods
             GTPlayer.Instance.maxArmLength = Howlong;
         }
 
-        public static void unguardianplayer()
-        {
-            foreach (var ZoneManager in GorillaGuardianZoneManager.zoneManagers.Where(gorillaGuardianZoneManager => gorillaGuardianZoneManager.enabled && gorillaGuardianZoneManager.IsZoneValid()).Where(gorillaGuardianZoneManager => gorillaGuardianZoneManager.CurrentGuardian == Network_local_player))
-            {
-                ZoneManager.SetGuardian(null);
-            }   
-        }
+        public static void Joincode(string Code) =>
+            PhotonNetworkController.Instance.AttemptToJoinSpecificRoom(Code, GorillaNetworking.JoinType.Solo);
 
         public static void unguardianall()
         {
@@ -108,6 +106,14 @@ namespace liquidclient.Mods
             }
         }
 
+        public static void LockRoom()
+        {
+            if (PhotonNetwork.InRoom)
+            {
+                
+            }
+            
+        }
         public static void guardianall()
         {
             int Players = 0;
@@ -119,8 +125,35 @@ namespace liquidclient.Mods
             }
         }
 
+        public static void Guardianothers()
+        {
+            int others = 0;
+            foreach (var ZoneManager in GorillaGuardianZoneManager.zoneManagers.Where(gorillaGuardianZoneManager => gorillaGuardianZoneManager.enabled && gorillaGuardianZoneManager.IsZoneValid()))
+            {
+                ZoneManager.SetGuardian(PhotonNetwork.PlayerListOthers[others]);
+                others++;
+            }
+        }
 
-        public static void Guardianhelper(bool Makeguardian, bool Everyoneisguardian)
+        public static void HoverboardColor(Color color, bool IsRGB)
+        {
+            HoverboardVisual Hoverboardvisual = Vrrig.hoverboardVisual;
+            if (Vrrig.hoverboardVisual.IsHeld && Vrrig.hoverboardVisual != null)
+            {
+                float frames = Time.time / 3f % 1f;
+                Color RGB = Color.HSVToRGB(frames, 1f, 1f);
+                if (IsRGB)
+                {
+                    Vrrig.hoverboardVisual.SetIsHeld(Hoverboardvisual.IsLeftHanded, Hoverboardvisual.NominalLocalPosition, Hoverboardvisual.NominalLocalRotation, RGB);
+                }
+                else
+                {
+                    Vrrig.hoverboardVisual.SetIsHeld(Hoverboardvisual.IsLeftHanded, Hoverboardvisual.NominalLocalPosition, Hoverboardvisual.NominalLocalRotation, color);
+                }
+            }
+        }
+
+        public static void Guardianhelper(bool Makeguardian, bool Everyoneisguardian, bool guardothers)
         {
             if (NetworkSystem.Instance.InRoom && NetworkSystem.Instance.IsMasterClient)
             {
@@ -143,7 +176,7 @@ namespace liquidclient.Mods
 
                 if (!Makeguardian)
                 {
-                    unguardianplayer();
+                    unguardianall();
                 }
 
                 if (Everyoneisguardian)
@@ -155,17 +188,27 @@ namespace liquidclient.Mods
                 {
                     unguardianall();
                 }
+
+                if (guardothers)
+                {
+                    Guardianothers();
+                }
+
+                if (!guardothers)
+                {
+                    unguardianall();
+                }
             }
         }
-            
 
-        
-        public static void LagServer()
+
+        // 23
+        public static void LagServer(byte b)
         {
             bool inroom = !PhotonNetwork.InRoom;
             if (!inroom)
             {
-                bool freezedelay_ = Time.time > freezedelay;
+                bool freezedelay_ = Time.time > Lagdelay;
                 if (freezedelay_)
                 {
                     for (int i = 0; i < 11; i++)
@@ -179,19 +222,20 @@ namespace liquidclient.Mods
                 -1
                             }
                         };
-                        byte b = 170;
                         NetworkSystemRaiseEvent.RaiseEvent(b, new object[]
                         {
             "slkyy!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
                         }, netEventOptions, false);
                     }
-                    freezedelay = Time.time + 1f;
+                    Lagdelay = Time.time + 1f;
                     RPCProtection();
                 }
             }
         }
 
-        public static float freezedelay;
+        
+
+        public static float Lagdelay;
 
         public static float delay = 0f;
 
@@ -453,6 +497,12 @@ namespace liquidclient.Mods
                 leftplat = null;
             }
         }
+
+        
+
+
+        
+            
 
         public static bool previousTeleportTrigger;
         public static void TeleportGun()
@@ -932,6 +982,12 @@ namespace liquidclient.Mods
                 }
             }
         }
+
+        public static void Lockroom()
+        {
+
+        }
+        
         public static void ffps()
         {
             Application.targetFrameRate = 5;
@@ -1244,7 +1300,7 @@ namespace liquidclient.Mods
                     {
                         GorillaTagger.Instance.offlineVRRig.enabled = true;
                         GorillaTagger.Instance.offlineVRRig.transform.position = vrrig.transform.position;
-                        GameMode.ReportTag(vrrig.Creator);
+                        GorillaGameModes.GameMode.ReportTag(vrrig.Creator);
                     }
                 }
                 else
@@ -1311,11 +1367,7 @@ namespace liquidclient.Mods
 
         
 
-        public static void Disablesubdoor()
-        {
-            GameObject Subdoor = GameObject.Find("City_Pretty/CosmeticsRoomAnchor/outsidestores_prefab/Top Layer/Huts/SubscribersHut/SubscriberExclusionZone/");
-            Subdoor.SetActive(false);
-        }
+        
 
         public static bool screenToggleState;
         public static float nextToggleTime;
@@ -1364,6 +1416,8 @@ namespace liquidclient.Mods
 
             FreeHoverboardManager.instance.SendDropBoardRPC(spawnPos, spawnRot, Vector3.zero, Vector3.zero, color);
         }
+
+        
         // FASTTTT VRMMMM
         private static float Paddleboostmulti = 20f;
         private static float tiltfowerdthing = 10f;
@@ -1440,8 +1494,19 @@ namespace liquidclient.Mods
             }
         }
 
-        public static void Joindadiscord() =>
-            Process.Start(serverLink);
+        
+        public static void RightgripPanic()
+        {
+            if (ControllerInputPoller.instance.rightGrab)
+            {
+                foreach (ButtonInfo Enabled in Buttons.GetActiveMods())
+                {
+                    Enabled.enabled = false;
+                }
+            }
+        }
+
+        
 
 
     }
