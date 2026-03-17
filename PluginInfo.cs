@@ -9,11 +9,11 @@ namespace liquidclient
         public const bool BetaBuild = false;
 
 #if BETA
-        public const string Version = "1.2.4 Beta Testing";
+        public const string Version = "1.2.6 Beta Testing";
 #else
-        public const string Version = "1.2.4";
+        public const string Version = "1.2.5";
 #endif
 
         public static string BaseDirectory = "Liquid.Client";
     }
-}
+}                                  
