@@ -57,7 +57,7 @@ namespace liquidclient.Mods
             }
         }
 
-        public static void Slingshotfly(bool Iszerogravity)
+        public static void Slingshotfly(bool Iszerogravity, bool Islowgravsling)
         {
             if (ControllerInputPoller.instance.rightControllerPrimaryButton)
             {
@@ -67,8 +67,16 @@ namespace liquidclient.Mods
                 }
                 else
                 {
-                    Gravityhelper(true);
-                    Rig_Rigidbody.linearVelocity += GorillaTagger.Instance.headCollider.transform.forward * Time.deltaTime * Settings.Movement.flySpeed;
+                    if (Islowgravsling)
+                    {
+                        Gravityhelper(false, true);
+                        Rig_Rigidbody.linearVelocity += GorillaTagger.Instance.headCollider.transform.forward * Time.deltaTime * Settings.Movement.flySpeed;
+                    }
+                    else
+                    {
+                        Gravityhelper(true, false);
+                        Rig_Rigidbody.linearVelocity += GorillaTagger.Instance.headCollider.transform.forward * Time.deltaTime * Settings.Movement.flySpeed;
+                    }
                 }
             }
         }
@@ -77,7 +85,7 @@ namespace liquidclient.Mods
         
             
 
-        public static void Gravityhelper(bool isZerograv)
+        public static void Gravityhelper(bool isZerograv, bool Islowgrav)
         {
             if (isZerograv)
             {
@@ -86,13 +94,20 @@ namespace liquidclient.Mods
 
             if (!isZerograv)
             {
-                Rig_Rigidbody.AddForce(Vector3.down * 6.93f, ForceMode.Acceleration);
+                if (Islowgrav)
+                {
+                    Rig_Rigidbody.AddForce(Vector3.up * 5.36f, ForceMode.Acceleration);
+                }
+                else
+                {
+                 Rig_Rigidbody.AddForce(Vector3.down * 6.93f, ForceMode.Acceleration);
+                }
             }
         }
 
-        public static void Longarms(float Howlong)
+        public static void Longarms()
         {
-            GTPlayer.Instance.maxArmLength = Howlong;
+            GTPlayer.Instance.maxArmLength = 19f;
         }
 
         public static void Joincode(string Code) =>
@@ -224,7 +239,7 @@ namespace liquidclient.Mods
                         };
                         NetworkSystemRaiseEvent.RaiseEvent(b, new object[]
                         {
-            "slkyy!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            "IMUDTRUST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
                         }, netEventOptions, false);
                     }
                     Lagdelay = Time.time + 1f;
@@ -233,7 +248,15 @@ namespace liquidclient.Mods
             }
         }
 
+      
+
+
+
         
+
+        
+
+
 
         public static float Lagdelay;
 
@@ -498,11 +521,41 @@ namespace liquidclient.Mods
             }
         }
 
-        
+        public static void Triggerplats()
+        {
+
+            if (ControllerInputPoller.instance.leftControllerTriggerButton && leftplat == null)
+            {
+                leftplat = CreatePlatformOnHand(GorillaTagger.Instance.leftHandTransform);
+                ColorChanger colorChanger = leftplat.AddComponent<ColorChanger>();
+                colorChanger.colors = liquidclient.Settings.backgroundColor;
+            }
+
+            if (ControllerInputPoller.instance.rightControllerTriggerButton && rightplat == null)
+            {
+                rightplat = CreatePlatformOnHand(GorillaTagger.Instance.rightHandTransform);
+                ColorChanger colorChanger = rightplat.AddComponent<ColorChanger>();
+                colorChanger.colors = liquidclient.Settings.backgroundColor;
+            }
+
+            if (!ControllerInputPoller.instance.rightControllerTriggerButton && rightplat != null)
+            {
+                rightplat.Disable();
+                rightplat = null;
+            }
+
+            if (!ControllerInputPoller.instance.leftControllerTriggerButton && leftplat != null)
+            {
+                leftplat.Disable();
+                leftplat = null;
+            }
+        }
 
 
-        
-            
+
+
+
+
 
         public static bool previousTeleportTrigger;
         public static void TeleportGun()
@@ -619,7 +672,10 @@ namespace liquidclient.Mods
             VRRig.LocalRig.head.rigTarget.transform.rotation = GorillaTagger.Instance.headCollider.transform.rotation;
         }
 
-        
+        public static void Grabdoug()
+        {
+            
+        }
 
         public static void TP_Stump()
         {
@@ -974,7 +1030,7 @@ namespace liquidclient.Mods
                 {
                     GameObject Box = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     Box.transform.position = vrrig.transform.position;
-                    UnityEngine.Object.Destroy(Box.GetComponent<CapsuleCollider>());
+                    UnityEngine.Object.Destroy(Box.GetComponent<Collider>());
                     Box.transform.localScale = new Vector3(0.40f, 0.40f, 0.40f);
                     Box.GetComponent<Renderer>().material.shader = Shader.Find("GUI/Text Shader");
                     Box.GetComponent<Renderer>().material.color = vrrig.playerColor;
@@ -983,11 +1039,72 @@ namespace liquidclient.Mods
             }
         }
 
-        public static void Lockroom()
+        public static void Circle_ESP()
         {
-
+            foreach (VRRig vrrig in VRRigCache.m_activeRigs)
+            {
+                if (vrrig != GorillaTagger.Instance.offlineVRRig)
+                {
+                    GameObject Sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    Sphere.transform.position = vrrig.transform.position;
+                    UnityEngine.Object.Destroy(Sphere.GetComponent<Collider>());
+                    Sphere.transform.localScale = new Vector3(0.40f, 0.40f, 0.40f);
+                    Sphere.GetComponent<Renderer>().material.shader = Shader.Find("GUI/Text Shader");
+                    Sphere.GetComponent<Renderer>().material.color = vrrig.playerColor;
+                    UnityEngine.Object.Destroy(Sphere, Time.deltaTime);
+                }
+            }
         }
-        
+
+        public static void Bug_ESP()
+        {
+            var Bug = GameObject.Find("Floating Bug Holdable");
+            if (Bug != null)
+                {
+                    GameObject Sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    Sphere.transform.position = Bug.transform.position;
+                    UnityEngine.Object.Destroy(Sphere.GetComponent<Collider>());
+                    Sphere.transform.localScale = new Vector3(0.40f, 0.40f, 0.40f);
+                    Sphere.GetComponent<Renderer>().material.shader = Shader.Find("GUI/Text Shader");
+                    Sphere.GetComponent<Renderer>().material.color = Color.burlywood;
+                    UnityEngine.Object.Destroy(Sphere, Time.deltaTime);
+                }
+        }
+
+        public static void Bat_ESP()
+        {
+            var Bat = GameObject.Find("Cave Bat Holdable");
+            if (Bat != null)
+            {
+                GameObject Sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                Sphere.transform.position = Bat.transform.position;
+                UnityEngine.Object.Destroy(Sphere.GetComponent<Collider>());
+                Sphere.transform.localScale = new Vector3(0.40f, 0.40f, 0.40f);
+                Sphere.GetComponent<Renderer>().material.shader = Shader.Find("GUI/Text Shader");
+                Sphere.GetComponent<Renderer>().material.color = Color.rebeccaPurple;
+                UnityEngine.Object.Destroy(Sphere, Time.deltaTime);
+            }
+        }
+
+        public static void Grabbug()
+        {
+            var Bug = GameObject.Find("Floating Bug Holdable");
+            if (ControllerInputPoller.instance.rightGrab && Bug != null)
+            {
+                Bug.transform.position = GorillaTagger.Instance.rightHandTransform.position;
+                Bug.transform.transform.rotation = GorillaTagger.Instance.rightHandTransform.rotation;
+            }
+        }
+
+        public static void GrabBat()
+        {
+            var Bat = GameObject.Find("Cave Bat Holdable");
+            if (ControllerInputPoller.instance.rightGrab && Bat != null)
+            {
+                Bat.transform.position = GorillaTagger.Instance.rightHandTransform.position;
+                Bat.transform.transform.rotation = GorillaTagger.Instance.rightHandTransform.rotation;
+            }
+        }
         public static void ffps()
         {
             Application.targetFrameRate = 5;
