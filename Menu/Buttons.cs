@@ -215,7 +215,6 @@ namespace liquidclient.Menu
             new ButtonInfo[] { // OP Mods [11]-
                 // ButtonInfo { buttonText = "Check Matser", method = () => Movement.Checkmaster(), isTogglable = false },
                 new ButtonInfo { buttonText = "Ghost Money", method = () => Movement.AddCurrencySelf() },
-                 new ButtonInfo { buttonText = "Anti Ban(OP)", method = () => Movement.AntiBan() },
                 new ButtonInfo { buttonText = "Lag server 1", method = () => Movement.LagServer(24), toolTip = "Lags the server"},
                 new ButtonInfo { buttonText = "Lag server 2", method = () => Movement.LagServer(23), toolTip = "Lags the server"},
                 new ButtonInfo { buttonText = "Freeze server", method = () => Movement.LagServer(149), toolTip = "Attempts to freeze the server"},
