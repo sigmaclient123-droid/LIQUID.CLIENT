@@ -1526,7 +1526,7 @@ namespace liquidclient.Mods
                 Wind.transform.rotation = GorillaTagger.Instance.rightHandTransform.rotation;
             }
         }
-
+        // Soon
         public static void Flinggun()
         {
             GameObject Wind = GameObject.Find("Environment Objects/LocalObjects_Prefab/TreeRoom/sky jungle entrance 2/JunkToDisable/Wind Tunnels/WindTunnelRibbons_Prefab (5)");
