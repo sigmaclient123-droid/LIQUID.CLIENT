@@ -1301,57 +1301,7 @@ namespace liquidclient.Mods
         }
 
 
-        public static float antibandelay = 0f;
-        // yay
-        public static void AntiBan()
-        {
-            if (Time.time > antibandelay)
-            {
-                WebFlags flags = new WebFlags(3);
-
-                PhotonNetwork.RaiseEvent(
-                   8,
-                   new object[3],
-                   new RaiseEventOptions
-                   {
-                       CachingOption = EventCaching.RemoveFromRoomCache,
-                       TargetActors = new int[] { PhotonNetwork.LocalPlayer.actorNumber },
-                       Receivers = ReceiverGroup.MasterClient,
-                       Flags = flags
-                   },
-                   SendOptions.SendReliable
-                );
-
-                PhotonNetwork.RaiseEvent(
-                   50,
-                   new object[3],
-                   new RaiseEventOptions
-                   {
-                       CachingOption = EventCaching.RemoveFromRoomCache,
-                       TargetActors = new int[] { PhotonNetwork.LocalPlayer.actorNumber },
-                       Receivers = ReceiverGroup.MasterClient,
-                       Flags = flags
-                   },
-                   SendOptions.SendReliable
-                );
-
-                MonkeAgent.instance.rpcErrorMax = int.MaxValue;
-                MonkeAgent.instance.logErrorMax = int.MaxValue;
-                PhotonNetwork.MaxResendsBeforeDisconnect = int.MaxValue;
-                PhotonNetwork.SendAllOutgoingCommands();
-                Hashtable rpcfiltershit = new Hashtable();
-                rpcfiltershit[0] = GorillaTagger.Instance.myVRRig.ViewID;
-                PhotonNetwork.NetworkingClient.OpRaiseEvent(200, rpcfiltershit, new RaiseEventOptions
-                {
-                    CachingOption = EventCaching.RemoveFromRoomCache,
-                    TargetActors = new int[]
-                    {
-                      PhotonNetwork.LocalPlayer.ActorNumber
-                    }
-                }, SendOptions.SendReliable);
-                antibandelay = Time.time + 0.05f;
-            }
-        }
+        
         public static void tg()
         {
             foreach (VRRig vrrig in VRRigCache.m_activeRigs)
