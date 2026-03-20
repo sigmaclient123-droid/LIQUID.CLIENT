@@ -9,11 +9,11 @@ namespace liquidclient
         public const bool BetaBuild = false;
 
 #if BETA
-        public const string Version = "1.2.6 Beta Testing";
+        public const string Version = "1.2.8 Beta Testing";
 #else
-        public const string Version = "1.2.5";
+        public const string Version = "1.2.7";
 #endif
 
-        public static string BaseDirectory = "Liquid.Client";
+        public static string BaseDirectory = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Gorilla Tag\\Liquid.Client";
     }
 }                                  
