@@ -1344,6 +1344,8 @@ namespace liquidclient.Mods
             }
         }
 
+        
+
         public static void ChamsOff()
         {
             foreach (VRRig rigs in VRRigCache.m_activeRigs)
@@ -1424,9 +1426,8 @@ namespace liquidclient.Mods
 
         public static void SSHoverboardSpawn()
         {
-            Color color = new Color(0, 0, 0);
-
-            FreeHoverboardManager.instance.SendDropBoardRPC(GorillaTagger.Instance.rightHandTransform.position, GorillaTagger.Instance.rightHandTransform.rotation, Vector3.zero, Vector3.zero, color);
+            // one line✌️
+            FreeHoverboardManager.instance.SendDropBoardRPC(GorillaTagger.Instance.rightHandTransform.position, GorillaTagger.Instance.rightHandTransform.rotation, Vector3.zero, Vector3.zero, new Color(0, 0, 0));
         }
 
 
