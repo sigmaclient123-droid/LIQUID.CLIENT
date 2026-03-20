@@ -1,12 +1,11 @@
 using GorillaLocomotion;
 using GorillaNetworking;
-using liquid.client.Mods;
+using liquidclient.Mods;
 using liquid.client.Patches.Internal;
 using liquidclient.Classes;
 using liquidclient.GunLib;
 using liquidclient.Managers;
 using liquidclient.mods;
-using liquidclient.Mods;
 using liquidclient.Notifications;
 using liquidclient.Patches.Menu;
 using Photon.Pun;
@@ -149,12 +148,13 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Zero Gravity Slingshot Fly", method = () => Movement.Slingshotfly(true, false) },
                 new ButtonInfo { buttonText = "Low Gravity Slingshot Fly", method = () => Movement.Slingshotfly(false, true) },
                 new ButtonInfo { buttonText = "Bird Fly", method = Movement.BirdFly, toolTip = "Makes you fly like a bird when you flap your wings."},
+                new ButtonInfo { buttonText = "Slide Control", method = () => Movement.Slidemangerr(10f) },
                 //new ButtonInfo { buttonText = "Long arms", method = () => Longarms(), toolTip = "Long Arms"},
             },
 
             new ButtonInfo[] { // Safety Mods [7]
                 new ButtonInfo { buttonText = "Anti Report", method = () => Safety.AntiReportDisconnect() },
-                new ButtonInfo { buttonText = "Visualize Anti Report", method = Safety.VisualizeAntiReport, toolTip = "Visualizes the distance threshold for the anti report mods."},
+                //new ButtonInfo { buttonText = "Visualize Anti Report", method = Safety.VisualizeAntiReport, toolTip = "Visualizes the distance threshold for the anti report mods."},
                 new ButtonInfo { buttonText = "Flush Rpcs Dont Spam", method = () => Movement.FlushRPCs(), isTogglable = false },
                 new ButtonInfo { buttonText = "Auto Clear Cache", method = Safety.AutoClearCache, toolTip = "Automatically clears your game's cache (garbage collector) every minute to prevent memory leaks."},
                 new ButtonInfo { buttonText = "Disable Fingers", method = () => Movement.DisableFingers(), toolTip = "Good for plats"},
@@ -167,10 +167,10 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "First Person Camera", enableMethod = Important.EnableFPC, method = Important.MoveFPC, disableMethod = Important.DisableFPC },
                 new ButtonInfo { buttonText = "Get ID Self", method = Important.CopySelfID, isTogglable = false, toolTip = "Gets your player ID and copies it to the clipboard."},
                 new ButtonInfo { buttonText = "Unlock FPS", method = Important.UncapFPS, disableMethod =() => Application.targetFrameRate = 144 },
-                new ButtonInfo { buttonText = "Disable Air", overlapText = "Disable Wind Barriers", enableMethod =() => { ForcePatches.enabled = true; GetObject("Environment Objects/LocalObjects_Prefab/Forest/Environment/Forest_ForceVolumes/").SetActive(false); GetObject("Environment Objects/LocalObjects_Prefab/ForestToHoverboard/TurnOnInForestAndHoverboard/ForestDome_CollisionOnly").SetActive(false); }, disableMethod =() => { ForcePatches.enabled = false; GetObject("Environment Objects/LocalObjects_Prefab/Forest/Environment/Forest_ForceVolumes/").SetActive(true); GetObject("Environment Objects/LocalObjects_Prefab/ForestToHoverboard/TurnOnInForestAndHoverboard/ForestDome_CollisionOnly").SetActive(true); }, toolTip = "Disables the wind barriers in every map." },
+                new ButtonInfo { buttonText = "Disable Wind Barrier", overlapText = "Disable Wind Barriers", enableMethod =() => { ForcePatches.enabled = true; GetObject("Environment Objects/LocalObjects_Prefab/Forest/Environment/Forest_ForceVolumes/").SetActive(false); GetObject("Environment Objects/LocalObjects_Prefab/ForestToHoverboard/TurnOnInForestAndHoverboard/ForestDome_CollisionOnly").SetActive(false); }, disableMethod =() => { ForcePatches.enabled = false; GetObject("Environment Objects/LocalObjects_Prefab/Forest/Environment/Forest_ForceVolumes/").SetActive(true); GetObject("Environment Objects/LocalObjects_Prefab/ForestToHoverboard/TurnOnInForestAndHoverboard/ForestDome_CollisionOnly").SetActive(true); }, toolTip = "Disables the wind barriers in every map." },
                 new ButtonInfo { buttonText = "Unlock Fan Club Subscription", enableMethod =() => SubscriptionPatches.enabled = true, disableMethod =() => SubscriptionPatches.enabled = false, toolTip = "Unlocks the Gorilla Tag fan club subscription." },
                 new ButtonInfo { buttonText = "PC Controller Emulation", method = Important.PCControllerEmulation },
-                new ButtonInfo { buttonText = "Close Application", method = () => Mods.Movement.closegame(), isTogglable = false },
+                new ButtonInfo { buttonText = "Close Application", method = () => Application.Quit(), isTogglable = false },
                 new ButtonInfo { buttonText = "120 FPS", method = () => Mods.Movement.ofps(), disableMethod = Movement.FixFPS},
                 new ButtonInfo { buttonText = "60 FPS", method = () => Mods.Movement.sfps(), disableMethod = Movement.FixFPS },
                 new ButtonInfo { buttonText = "40 FPS", method = () => Mods.Movement.Ffps(), disableMethod = Movement.FixFPS },
@@ -179,6 +179,7 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Fps Boost", method = () => Mods.Movement.FPSBoostIndev() },
                 new ButtonInfo { buttonText = "Grab Bug(If M Then SS)", method = () => Grabbug()},
                 new ButtonInfo { buttonText = "Grab Bat(If M Then SS)", method = () => GrabBat()},
+                new ButtonInfo { buttonText = "Unlock comp", enableMethod = () => GorillaComputer.instance.allowedInCompetitive = true, disableMethod = () => GorillaComputer.instance.allowedInCompetitive = false},
             },
 
             new ButtonInfo[] { // Visual Mods [9]
@@ -202,7 +203,7 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Broken Neck", method = () => Movement.BrokenNeck(), disableMethod = Movement.FixRig },
                 new ButtonInfo { buttonText = "Rainbow Bracelet", enableMethod = () => Movement.RainbowBracelet(), disableMethod = () => Movement.disableRainbowBracelet() },
                 new ButtonInfo { buttonText = "Set Quest Score To 100k", method = () => Movement.addqueststuff(100000), disableMethod = () => Mods.Movement.Resetqueststuff() },
-                new ButtonInfo { buttonText = "Spawn Hoverboard", method = Movement.SpawnHowerdBoard, disableMethod = Movement.DisableHoverboard, toolTip = "Gives you the hoverboard no matter where you are."},
+                new ButtonInfo { buttonText = "Spawn Hoverboard", method = Movement.SSHoverboardSpawn, disableMethod = Movement.DisableHoverboard, toolTip = "Gives you the hoverboard no matter where you are."},
                 new ButtonInfo { buttonText = "Zero Gravity(CS)", method = () => Gravityhelper(true, false)},
                 new ButtonInfo { buttonText = "High Gravity(CS)", method = () => Gravityhelper(false, false)},
                 new ButtonInfo { buttonText = "Low Gravity(CS)", method = () => Gravityhelper(false, true)},
@@ -212,7 +213,9 @@ namespace liquidclient.Menu
             },
             
             new ButtonInfo[] { // OP Mods [11]-
+                // ButtonInfo { buttonText = "Check Matser", method = () => Movement.Checkmaster(), isTogglable = false },
                 new ButtonInfo { buttonText = "Ghost Money", method = () => Movement.AddCurrencySelf() },
+                 new ButtonInfo { buttonText = "Anti Ban(OP)", method = () => Movement.AntiBan() },
                 new ButtonInfo { buttonText = "Lag server 1", method = () => Movement.LagServer(24), toolTip = "Lags the server"},
                 new ButtonInfo { buttonText = "Lag server 2", method = () => Movement.LagServer(23), toolTip = "Lags the server"},
                 new ButtonInfo { buttonText = "Freeze server", method = () => Movement.LagServer(149), toolTip = "Attempts to freeze the server"},
@@ -223,6 +226,8 @@ namespace liquidclient.Menu
                 new ButtonInfo { buttonText = "Guardian Self(SS)(M)", enableMethod = () => Guardianhelper(true, false, false), disableMethod = () => Guardianhelper(false, false, false), toolTip = "Makes you guardian"},
                 new ButtonInfo { buttonText = "Guardian All(SS)(M)", enableMethod = () => Guardianhelper(false, true, false), disableMethod = () => Guardianhelper(false, false, false), toolTip = "Makes everyone guardian"},
                 new ButtonInfo { buttonText = "Guardian Others(SS)(M)", enableMethod = () => Guardianhelper(false, false, true), disableMethod = () => Guardianhelper(false, false, false), toolTip = "Makes everyone guardian"},
+                //new ButtonInfo { buttonText = "Wind Push(M)(RG)", method = () => Movement.Windmod(), toolTip = "Pushes whoever you point it at"},
+                //new ButtonInfo { buttonText = "Fling Gun(M)(RG)", method = () => Movement.Flinggun(), toolTip = "Flings emmmm"},
             },
 
             new ButtonInfo[] { // Sounds [12]
