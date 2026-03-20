@@ -1,6 +1,7 @@
 using BepInEx;
 using ExitGames.Client.Photon;
 using Fusion;
+using g3;
 using GorillaGameModes;
 using GorillaLocomotion;
 using GorillaLocomotion.Gameplay;
@@ -25,6 +26,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Transactions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Animations.Rigging;
@@ -81,9 +83,9 @@ namespace liquidclient.Mods
             }
         }
 
-        
-        
-            
+
+
+
 
         public static void Gravityhelper(bool isZerograv, bool Islowgrav)
         {
@@ -100,15 +102,27 @@ namespace liquidclient.Mods
                 }
                 else
                 {
-                 Rig_Rigidbody.AddForce(Vector3.down * 6.93f, ForceMode.Acceleration);
+                    Rig_Rigidbody.AddForce(Vector3.down * 6.93f, ForceMode.Acceleration);
                 }
             }
         }
 
-        public static void Longarms()
+        public static void Checkmaster()
         {
-            GTPlayer.Instance.maxArmLength = 19f;
+            if (!NetworkSystem.Instance.IsMasterClient && PhotonNetwork.InRoom)
+            {
+                NotifiLib.SendNotification("You are not master client!");
+                return;
+            }
+
+            if (NetworkSystem.Instance.IsMasterClient && PhotonNetwork.InRoom)
+            {
+                NotifiLib.SendNotification("You are master client!");
+                return;
+            }
         }
+
+   
 
         public static void Joincode(string Code) =>
             PhotonNetworkController.Instance.AttemptToJoinSpecificRoom(Code, GorillaNetworking.JoinType.Solo);
@@ -121,14 +135,7 @@ namespace liquidclient.Mods
             }
         }
 
-        public static void LockRoom()
-        {
-            if (PhotonNetwork.InRoom)
-            {
-                
-            }
-            
-        }
+
         public static void guardianall()
         {
             int Players = 0;
@@ -216,8 +223,7 @@ namespace liquidclient.Mods
             }
         }
 
-
-        // 23
+        // 143 23 24 1
         public static void LagServer(byte b)
         {
             bool inroom = !PhotonNetwork.InRoom;
@@ -239,7 +245,7 @@ namespace liquidclient.Mods
                         };
                         NetworkSystemRaiseEvent.RaiseEvent(b, new object[]
                         {
-            "noi"
+            "Slkyy!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
                         }, netEventOptions, false);
                     }
                     Lagdelay = Time.time + 1f;
@@ -248,13 +254,13 @@ namespace liquidclient.Mods
             }
         }
 
-      
 
 
 
-        
 
-        
+
+
+
 
 
 
@@ -303,7 +309,7 @@ namespace liquidclient.Mods
             sphere.GetComponent<Renderer>().material = mat;
             Object.Destroy(sphere, 0.3f);
         }
-        
+
         public static GameObject CheckPoint;
         // NO THIS IS NOT SKIDDED I MADE THIS
         public static void Checkpoint()
@@ -577,9 +583,9 @@ namespace liquidclient.Mods
 
             GunLibTEst.AthrionGunLibrary.StartPcGun(delegate ()
             {
-                    var teleportposint = GunLibTEst.AthrionGunLibrary.GetPointerPos();
-                    var Teleportrotation = GorillaTagger.Instance.transform.rotation;
-                    GTPlayer.Instance.TeleportTo(teleportposint + Vector3.up, Teleportrotation, false, false);
+                var teleportposint = GunLibTEst.AthrionGunLibrary.GetPointerPos();
+                var Teleportrotation = GorillaTagger.Instance.transform.rotation;
+                GTPlayer.Instance.TeleportTo(teleportposint + Vector3.up, Teleportrotation, false, false);
             }, false);
         }
 
@@ -589,93 +595,9 @@ namespace liquidclient.Mods
             GTPlayer.Instance.jumpMultiplier = 1.1f;
         }
 
-        public static float startX = -1f;
-        public static float startY = -1f;
 
-        public static float subThingy;
-        public static float subThingyZ;
 
-        public static void WASDFly()
-        {
-            GorillaLocomotion.GTPlayer.Instance.GetComponent<Rigidbody>().linearVelocity = new Vector3(0f, 0.067f, 0f);
 
-            bool W = UnityInput.Current.GetKey(KeyCode.W);
-            bool A = UnityInput.Current.GetKey(KeyCode.A);
-            bool S = UnityInput.Current.GetKey(KeyCode.S);
-            bool D = UnityInput.Current.GetKey(KeyCode.D);
-            bool Space = UnityInput.Current.GetKey(KeyCode.Space);
-            bool Ctrl = UnityInput.Current.GetKey(KeyCode.LeftControl);
-
-            if (Mouse.current.rightButton.isPressed)
-            {
-                Transform parentTransform = GorillaLocomotion.GTPlayer.Instance.RightHand.controllerTransform.parent;
-                Quaternion currentRotation = parentTransform.rotation;
-                Vector3 euler = currentRotation.eulerAngles;
-
-                if (startX < 0)
-                {
-                    startX = euler.y;
-                    subThingy = Mouse.current.position.value.x / UnityEngine.Screen.width;
-                }
-                if (startY < 0)
-                {
-                    startY = euler.x;
-                    subThingyZ = Mouse.current.position.value.y / UnityEngine.Screen.height;
-                }
-
-                float newX = startY - ((((Mouse.current.position.value.y / UnityEngine.Screen.height) - subThingyZ) * 360) * 1.33f);
-                float newY = startX + ((((Mouse.current.position.value.x / UnityEngine.Screen.width) - subThingy) * 360) * 1.33f);
-
-                newX = (newX > 180f) ? newX - 360f : newX;
-                newX = Mathf.Clamp(newX, -90f, 90f);
-
-                parentTransform.rotation = Quaternion.Euler(newX, newY, euler.z);
-            }
-            else
-            {
-                startX = -1;
-                startY = -1;
-            }
-
-            float speed = Settings.Movement.flySpeed;
-            if (UnityInput.Current.GetKey(KeyCode.LeftShift))
-                speed *= 2f;
-            if (W)
-            {
-                GorillaTagger.Instance.rigidbody.transform.position += GorillaLocomotion.GTPlayer.Instance.RightHand.controllerTransform.parent.forward * Time.deltaTime * speed;
-            }
-
-            if (S)
-            {
-                GorillaTagger.Instance.rigidbody.transform.position += GorillaLocomotion.GTPlayer.Instance.RightHand.controllerTransform.parent.forward * Time.deltaTime * -speed;
-            }
-
-            if (A)
-            {
-                GorillaTagger.Instance.rigidbody.transform.position += GorillaLocomotion.GTPlayer.Instance.RightHand.controllerTransform.parent.right * Time.deltaTime * -speed;
-            }
-
-            if (D)
-            {
-                GorillaTagger.Instance.rigidbody.transform.position += GorillaLocomotion.GTPlayer.Instance.RightHand.controllerTransform.parent.right * Time.deltaTime * speed;
-            }
-
-            if (Space)
-            {
-                GorillaTagger.Instance.rigidbody.transform.position += new Vector3(0f, Time.deltaTime * speed, 0f);
-            }
-
-            if (Ctrl)
-            {
-                GorillaTagger.Instance.rigidbody.transform.position += new Vector3(0f, Time.deltaTime * -speed, 0f);
-            }
-            VRRig.LocalRig.head.rigTarget.transform.rotation = GorillaTagger.Instance.headCollider.transform.rotation;
-        }
-
-        public static void Grabdoug()
-        {
-            
-        }
 
         public static void TP_Stump()
         {
@@ -683,7 +605,7 @@ namespace liquidclient.Mods
             GorillaTagger.Instance.rigidbody.linearVelocity = Vector3.zero;
         }
 
-        public static GameObject airSwimPart;
+        /*public static GameObject airSwimPart;
         public static void AirSwim()
         {
             if (airSwimPart == null)
@@ -734,7 +656,7 @@ namespace liquidclient.Mods
                 GameObject v = waterVolume.gameObject;
                 v.layer = LayerMask.NameToLayer("TransparentFX");
             }
-        }
+        }*/
 
         private static float flapTime;
         public static void BirdFly()
@@ -749,7 +671,7 @@ namespace liquidclient.Mods
             if (Physics.Raycast(GorillaTagger.Instance.bodyCollider.attachedRigidbody.position, Vector3.down, hitInfo: out _, Physics.AllLayers))
                 return;
 
-            
+
 
             if (lefthand.TryGetFeatureValue(UnityEngine.XR.CommonUsages.deviceVelocity, out Vector3 leftVel) && righthand.TryGetFeatureValue(UnityEngine.XR.CommonUsages.deviceVelocity, out Vector3 rightVel))
             {
@@ -764,7 +686,7 @@ namespace liquidclient.Mods
                 }
             }
         }
-
+        /*
         public static void SolidWater()
         {
             foreach (WaterVolume waterVolume in GetAllType<WaterVolume>())
@@ -781,7 +703,7 @@ namespace liquidclient.Mods
                 GameObject v = waterVolume.gameObject;
                 v.layer = LayerMask.NameToLayer("Water");
             }
-        }
+        }*/
 
         public static void AddCurrencySelf()
         {
@@ -798,7 +720,6 @@ namespace liquidclient.Mods
         {
             GTPlayer.Instance.maxJumpSpeed = 11.3f;
             GTPlayer.Instance.jumpMultiplier = 1.3f;
-
         }
         public static void rightgripspeedboost()
         {
@@ -904,7 +825,7 @@ namespace liquidclient.Mods
             Rig.enabled = true;
         }
 
-        
+
 
         public static void UpsideDownHead()
         {
@@ -1000,10 +921,7 @@ namespace liquidclient.Mods
             Application.targetFrameRate = 120;
         }
 
-        public static void closegame()
-        {
-            Application.Quit();
-        }
+
 
         public static void beacons()
         {
@@ -1060,15 +978,15 @@ namespace liquidclient.Mods
         {
             var Bug = GameObject.Find("Floating Bug Holdable");
             if (Bug != null)
-                {
-                    GameObject Sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    Sphere.transform.position = Bug.transform.position;
-                    UnityEngine.Object.Destroy(Sphere.GetComponent<Collider>());
-                    Sphere.transform.localScale = new Vector3(0.40f, 0.40f, 0.40f);
-                    Sphere.GetComponent<Renderer>().material.shader = Shader.Find("GUI/Text Shader");
-                    Sphere.GetComponent<Renderer>().material.color = Color.burlywood;
-                    UnityEngine.Object.Destroy(Sphere, Time.deltaTime);
-                }
+            {
+                GameObject Sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                Sphere.transform.position = Bug.transform.position;
+                UnityEngine.Object.Destroy(Sphere.GetComponent<Collider>());
+                Sphere.transform.localScale = new Vector3(0.40f, 0.40f, 0.40f);
+                Sphere.GetComponent<Renderer>().material.shader = Shader.Find("GUI/Text Shader");
+                Sphere.GetComponent<Renderer>().material.color = Color.burlywood;
+                UnityEngine.Object.Destroy(Sphere, Time.deltaTime);
+            }
         }
 
         public static void Bat_ESP()
@@ -1085,12 +1003,15 @@ namespace liquidclient.Mods
                 UnityEngine.Object.Destroy(Sphere, Time.deltaTime);
             }
         }
-
+        // E
         public static void Grabbug()
         {
             var Bug = GameObject.Find("Floating Bug Holdable");
+            //PhotonView Bugss = Bug.GetPhotonView();
             if (ControllerInputPoller.instance.rightGrab && Bug != null)
             {
+                //Bugss.transform.position = GorillaTagger.Instance.rightHandTransform.position;
+                //Bugss.transform.transform.rotation = GorillaTagger.Instance.rightHandTransform.rotation;
                 Bug.transform.position = GorillaTagger.Instance.rightHandTransform.position;
                 Bug.transform.transform.rotation = GorillaTagger.Instance.rightHandTransform.rotation;
             }
@@ -1099,12 +1020,23 @@ namespace liquidclient.Mods
         public static void GrabBat()
         {
             var Bat = GameObject.Find("Cave Bat Holdable");
+            //PhotonView Batss = Bat.GetPhotonView();
             if (ControllerInputPoller.instance.rightGrab && Bat != null)
             {
+                //Batss.transform.position = GorillaTagger.Instance.rightHandTransform.position;
+                //Batss.transform.transform.rotation = GorillaTagger.Instance.rightHandTransform.rotation;
                 Bat.transform.position = GorillaTagger.Instance.rightHandTransform.position;
                 Bat.transform.transform.rotation = GorillaTagger.Instance.rightHandTransform.rotation;
             }
         }
+
+        /*public static void GrabSIItemwood()
+        {
+            if (ControllerInputPoller.instance.rightGrab && NetworkSystem.Instance.IsMasterClient)
+            {
+                
+            }
+        }*/
         public static void ffps()
         {
             Application.targetFrameRate = 5;
@@ -1123,9 +1055,9 @@ namespace liquidclient.Mods
             QualitySettings.vSyncCount = 0;
         }
 
-        
 
-       
+
+
 
 
         public static void GrabRig()
@@ -1145,32 +1077,19 @@ namespace liquidclient.Mods
         public static string serverLink = "https://discord.gg/v744fGYkyn";
 
 
+
+
+
         
-
-        private static bool hasGrabbedHoverboard;
-        public static void SpawnHowerdBoard()
-        {
-            if (!hasGrabbedHoverboard)
-            {
-                GTPlayer.Instance.GrabPersonalHoverboard(false, Vector3.zero, Quaternion.identity, Color.black);
-                hasGrabbedHoverboard = true;
-            }
-
-            GTPlayer.Instance.SetHoverAllowed(true);
-            GTPlayer.Instance.SetHoverActive(true);
-            VRRig.LocalRig.hoverboardVisual.gameObject.SetActive(true);
-        }
 
         public static void DisableHoverboard()
         {
-            hasGrabbedHoverboard = false;
-
             GTPlayer.Instance.SetHoverAllowed(false);
             GTPlayer.Instance.SetHoverActive(false);
             VRRig.LocalRig.hoverboardVisual.gameObject.SetActive(false);
         }
 
-        
+
 
         public static void JoinRandom()
         {
@@ -1218,7 +1137,7 @@ namespace liquidclient.Mods
             VRRig.LocalRig.head.trackingRotationOffset.y = 90f;
         }
 
-        
+
 
         public static void RPCProtection()
         {
@@ -1286,31 +1205,6 @@ namespace liquidclient.Mods
         }
 
 
-
-
-        public static void Invismonk()
-        {
-            bool invis = false;
-            var Rig = GorillaTagger.Instance.offlineVRRig;
-            if (ControllerInputPoller.instance.rightControllerSecondaryButton && !invis)
-            {
-                invis = true;
-                Rig.enabled = false;
-                Rig.transform.position = new Vector3(0f, -100f, 0f);
-
-            }
-
-            if (ControllerInputPoller.instance.rightControllerPrimaryButton && invis)
-            {
-                invis = false;
-                Rig.enabled = true;
-                VRRig.LocalRig.enabled = true;
-            }
-            else
-            {
-                VRRig.LocalRig.enabled = true;
-            }
-        }
 
         public static float isDirtyDelay;
         // Thank you ii
@@ -1380,9 +1274,9 @@ namespace liquidclient.Mods
 
         public static void Frozone()
         {
+            Color frozonecolor = Color.navyBlue;
             if (ControllerInputPoller.instance.rightGrab)
             {
-                Color frozonecolor = Color.navyBlue;
                 GameObject FrozoneCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 FrozoneCube.AddComponent<GorillaSurfaceOverride>().overrideIndex = 61;
                 FrozoneCube.transform.localScale = new Vector3(0.025f, 0.3f, 0.4f);
@@ -1392,10 +1286,9 @@ namespace liquidclient.Mods
                 FrozoneCube.GetComponent<Renderer>().material.color = frozonecolor;
                 GameObject.Destroy(FrozoneCube, 5);
             }
-
+            // hi
             if (ControllerInputPoller.instance.leftGrab)
             {
-                Color frozonecolor = Color.darkBlue;
                 GameObject FrozoneCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 FrozoneCube.AddComponent<GorillaSurfaceOverride>().overrideIndex = 61;
                 FrozoneCube.transform.localScale = new Vector3(0.025f, 0.3f, 0.4f);
@@ -1407,6 +1300,58 @@ namespace liquidclient.Mods
             }
         }
 
+
+        public static float antibandelay = 0f;
+        // yay
+        public static void AntiBan()
+        {
+            if (Time.time > antibandelay)
+            {
+                WebFlags flags = new WebFlags(3);
+
+                PhotonNetwork.RaiseEvent(
+                   8,
+                   new object[3],
+                   new RaiseEventOptions
+                   {
+                       CachingOption = EventCaching.RemoveFromRoomCache,
+                       TargetActors = new int[] { PhotonNetwork.LocalPlayer.actorNumber },
+                       Receivers = ReceiverGroup.MasterClient,
+                       Flags = flags
+                   },
+                   SendOptions.SendReliable
+                );
+
+                PhotonNetwork.RaiseEvent(
+                   50,
+                   new object[3],
+                   new RaiseEventOptions
+                   {
+                       CachingOption = EventCaching.RemoveFromRoomCache,
+                       TargetActors = new int[] { PhotonNetwork.LocalPlayer.actorNumber },
+                       Receivers = ReceiverGroup.MasterClient,
+                       Flags = flags
+                   },
+                   SendOptions.SendReliable
+                );
+
+                MonkeAgent.instance.rpcErrorMax = int.MaxValue;
+                MonkeAgent.instance.logErrorMax = int.MaxValue;
+                PhotonNetwork.MaxResendsBeforeDisconnect = int.MaxValue;
+                PhotonNetwork.SendAllOutgoingCommands();
+                Hashtable rpcfiltershit = new Hashtable();
+                rpcfiltershit[0] = GorillaTagger.Instance.myVRRig.ViewID;
+                PhotonNetwork.NetworkingClient.OpRaiseEvent(200, rpcfiltershit, new RaiseEventOptions
+                {
+                    CachingOption = EventCaching.RemoveFromRoomCache,
+                    TargetActors = new int[]
+                    {
+                      PhotonNetwork.LocalPlayer.ActorNumber
+                    }
+                }, SendOptions.SendReliable);
+                antibandelay = Time.time + 0.05f;
+            }
+        }
         public static void tg()
         {
             foreach (VRRig vrrig in VRRigCache.m_activeRigs)
@@ -1426,6 +1371,8 @@ namespace liquidclient.Mods
                 }
             }
         }
+
+        
 
         public static void chams()
         {
@@ -1480,11 +1427,11 @@ namespace liquidclient.Mods
                 }
             }
         }
-       
 
-        
 
-        
+
+
+
 
         public static bool screenToggleState;
         public static float nextToggleTime;
@@ -1520,7 +1467,7 @@ namespace liquidclient.Mods
             }
             else if (!greyzonestatus)
             {
-               GreyZoneManager.Instance.DeactivateGreyZoneAuthority();
+                GreyZoneManager.Instance.DeactivateGreyZoneAuthority();
                 GreyZoneManager.Instance.gravityFactorOptionSelection = 0;
             }
         }
@@ -1528,24 +1475,12 @@ namespace liquidclient.Mods
         public static void SSHoverboardSpawn()
         {
             Color color = new Color(0, 0, 0);
-            Vector3 spawnPos = GorillaTagger.Instance.rightHandTransform.position;
-            Quaternion spawnRot = GorillaTagger.Instance.rightHandTransform.rotation;
 
-            FreeHoverboardManager.instance.SendDropBoardRPC(spawnPos, spawnRot, Vector3.zero, Vector3.zero, color);
+            FreeHoverboardManager.instance.SendDropBoardRPC(GorillaTagger.Instance.rightHandTransform.position, GorillaTagger.Instance.rightHandTransform.rotation, Vector3.zero, Vector3.zero, color);
         }
+
 
         
-        // FASTTTT VRMMMM
-        private static float Paddleboostmulti = 20f;
-        private static float tiltfowerdthing = 10f;
-        public static void Fasthoverboarderr()
-        {
-            GTPlayer.Instance.hoverboardPaddleBoostMax = float.MaxValue;
-            GTPlayer.Instance.hoverboardPaddleBoostMultiplier = Paddleboostmulti;
-            GTPlayer.Instance.hoverboardBoostGracePeriod = 0f;
-            GTPlayer.Instance.hoverTiltAdjustsForwardFactor = tiltfowerdthing;
-
-        }
 
         #region Visual
 
@@ -1568,7 +1503,7 @@ namespace liquidclient.Mods
             }
         }*/
 
-        
+
         #endregion
         /* Soon
         public static void Copygun()
@@ -1611,7 +1546,7 @@ namespace liquidclient.Mods
             }
         }
 
-        
+
         public static void RightgripPanic()
         {
             if (ControllerInputPoller.instance.rightGrab)
@@ -1623,9 +1558,36 @@ namespace liquidclient.Mods
             }
         }
 
-        
+        public static void Slidemangerr(float amount)
+        {
+            GTPlayer.Instance.slideControl = amount;
+        }
 
+        public static void Windmod()
+        {
+            GameObject Wind = GameObject.Find("Environment Objects/LocalObjects_Prefab/TreeRoom/sky jungle entrance 2/JunkToDisable/Wind Tunnels/WindTunnelRibbons_Prefab (5)");
+            if (Wind != null && PhotonNetwork.IsMasterClient && ControllerInputPoller.instance.rightGrab)
+            {
+                var WindSS = Wind.GetPhotonView();
+                //GameObject clone = GameObject.Instantiate(Wind);
+                //clone.GetPhotonView().transform.position = GorillaTagger.Instance.rightHandTransform.position;
+                Wind.transform.position = GorillaTagger.Instance.rightHandTransform.position;
+                Wind.transform.rotation = GorillaTagger.Instance.rightHandTransform.rotation;
+            }
+        }
 
+        public static void Flinggun()
+        {
+            GameObject Wind = GameObject.Find("Environment Objects/LocalObjects_Prefab/TreeRoom/sky jungle entrance 2/JunkToDisable/Wind Tunnels/WindTunnelRibbons_Prefab (5)");
+            if (Wind != null && NetworkSystem.Instance.IsMasterClient && ControllerInputPoller.instance.rightGrab)
+            {
+                GameObject clone = GameObject.Instantiate(Wind);
+                GunLibTEst.AthrionGunLibrary.start2guns(delegate ()
+                {
+                    clone.transform.position = lockTarget.transform.position - new Vector3(0, 1, 0);
+                }, true);
+            }
+        }
     }
 }
 
